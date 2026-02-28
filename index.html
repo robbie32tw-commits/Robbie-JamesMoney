@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>記帳阿邦</title>
+    <!-- Google Fonts: Nunito & Noto Sans TC -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Nunito:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 導航視圖切換區塊 -->
+        <main class="views" id="views">
+            <!-- ========== 1. 首頁 (Dashboard) ========== -->
+            <section class="view active" id="view-dashboard">
+                <header class="app-header">
+                    <div class="header-greeting">
+                        <img src="./assets/abang_character.png" alt="阿邦會計師" class="abang-avatar">
+                        <div class="greeting-text">
+                            <h1 id="greeting-title">早安！</h1>
+                            <p id="abang-quote">阿邦幫你看緊荷包 🐾</p>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="dashboard-content">
+                    <!-- 今日進度條 -->
+                    <div class="budget-card">
+                        <div class="budget-card-header">
+                            <div class="budget-title-area">
+                                <h3>今日剩餘預算</h3>
+                                <div class="budget-date-range" id="today-date-range"></div>
+                            </div>
+                            <span class="budget-amount highlight" id="today-remaining">NT$ 500</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="today-progress" style="width: 50%;"></div>
+                        </div>
+                        <div class="budget-meta">
+                            <span>已花費: <strong id="today-spent">0</strong></span>
+                            <span>預算: <strong id="today-budget">500</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- 本週進度條 -->
+                    <div class="budget-card">
+                        <div class="budget-card-header">
+                            <div class="budget-title-area">
+                                <h3>本週剩餘預算</h3>
+                                <div class="budget-date-range" id="weekly-date-range"></div>
+                            </div>
+                            <span class="budget-amount" id="weekly-remaining">NT$ 3,500</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill weekly-fill" id="weekly-progress" style="width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 本月進度條 -->
+                    <div class="budget-card">
+                        <div class="budget-card-header">
+                            <div class="budget-title-area">
+                                <h3>本月剩餘預算</h3>
+                                <div class="budget-date-range" id="monthly-date-range"></div>
+                            </div>
+                            <span class="budget-amount" id="monthly-remaining">NT$ 15,000</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill monthly-fill" id="monthly-progress" style="width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 圓餅圖區塊 -->
+                    <div class="chart-card">
+                        <h3>花費分類概況 (本週)</h3>
+                        <div class="pie-chart-container">
+                            <div class="pie-chart" id="expense-pie"></div>
+                            <div class="pie-center">
+                                <span class="pie-label">本週剩餘</span>
+                                <span class="pie-value" id="pie-center-value">0</span>
+                            </div>
+                        </div>
+                        <div class="legend" id="chart-legend">
+                            <!-- 圖例動態生成 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 2. 記帳 (Add Expense) ========== -->
+            <section class="view" id="view-add">
+                <header class="app-header center">
+                    <h2>記一筆</h2>
+                </header>
+
+                <div class="add-form">
+                    <!-- 雙人切換 -->
+                    <div class="payer-toggle">
+                        <button class="payer-btn active" data-payer="A">A 付款</button>
+                        <button class="payer-btn" data-payer="B">B 付款</button>
+                    </div>
+
+                    <!-- 分類選擇 -->
+                    <div class="categories">
+                        <!-- 動態生成分類按鈕 -->
+                    </div>
+
+                    <!-- 明細輸入 -->
+                    <div class="detail-input-container">
+                        <input type="text" id="expense-detail" class="detail-input" placeholder="輸入明細 (選填)" />
+                    </div>
+
+                    <!-- 金額輸入與數字鍵盤區 -->
+                    <div class="input-area">
+                        <div class="amount-display">
+                            <input type="date" id="expense-date" class="date-input inline-date" />
+                            <div class="amount-text">
+                                <span class="currency">NT$</span>
+                                <span class="amount-value" id="input-amount">0</span>
+                            </div>
+                        </div>
+
+                        <div class="numpad">
+                            <button class="num-btn" data-num="1">1</button>
+                            <button class="num-btn" data-num="2">2</button>
+                            <button class="num-btn" data-num="3">3</button>
+                            <button class="num-btn btn-calc" data-op="+">+</button>
+
+                            <button class="num-btn" data-num="4">4</button>
+                            <button class="num-btn" data-num="5">5</button>
+                            <button class="num-btn" data-num="6">6</button>
+                            <button class="num-btn btn-calc" data-op="-">-</button>
+
+                            <button class="num-btn" data-num="7">7</button>
+                            <button class="num-btn" data-num="8">8</button>
+                            <button class="num-btn" data-num="9">9</button>
+                            <button class="num-btn btn-action" id="btn-clear">C</button>
+
+                            <button class="num-btn" data-num="0" style="grid-column: span 2;">0</button>
+                            <button class="num-btn btn-calc" id="btn-eq">=</button>
+                            <button class="num-btn btn-action btn-submit" id="btn-save">✓</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 3. 紀錄 (Records) ========== -->
+            <section class="view" id="view-records">
+                <header class="app-header center">
+                    <h2>過往紀錄</h2>
+                </header>
+                <div class="records-content">
+                    <div class="records-list" id="records-list">
+                        <!-- 動態生成紀錄列表 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 4. 統計 (Stats) ========== -->
+            <section class="view" id="view-stats">
+                <header class="app-header center">
+                    <h2>月度統計</h2>
+                </header>
+                <div class="stats-content">
+                    <div class="stats-card">
+                        <select id="stats-month-selector" class="stats-select">
+                            <!-- 動態生成月份選項 -->
+                        </select>
+                        <div class="stats-total">
+                            <h3>該月總花費</h3>
+                            <span class="stats-amount" id="stats-total-amount">NT$ 0</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>分類圓餅圖</h3>
+                        <div class="pie-chart-container">
+                            <div class="pie-chart" id="stats-pie"></div>
+                            <div class="pie-center">
+                                <span class="pie-label">總計</span>
+                                <span class="pie-value" id="stats-pie-center-value">0</span>
+                            </div>
+                        </div>
+                        <div class="legend" id="stats-legend">
+                            <!-- 圖例動態生成 -->
+                        </div>
+                        <div id="stats-settlement-card" class="stats-settlement">
+                            <!-- 雙人結算動態生成 -->
+                        </div>
+                        <div id="stats-daily-table" class="daily-table">
+                            <!-- 每日結算動態生成 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 5. 設定 (Settings) ========== -->
+            <section class="view" id="view-settings">
+                <header class="app-header center">
+                    <h2>設定</h2>
+                </header>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label for="setting-budget">每日預算 (NT$)</label>
+                        <input type="number" id="setting-budget" value="500">
+                    </div>
+                    <div class="setting-group">
+                        <label for="setting-payer-a">付款人 A 代稱</label>
+                        <input type="text" id="setting-payer-a" value="A">
+                    </div>
+                    <div class="setting-group">
+                        <label for="setting-payer-b">付款人 B 代稱</label>
+                        <input type="text" id="setting-payer-b" value="B">
+                    </div>
+                    <div class="setting-group">
+                        <label>外觀主題</label>
+                        <div class="theme-toggle" style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button class="theme-btn active" data-theme-val="light"
+                                style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--gray); background: var(--card-bg); color: var(--text-main); font-weight: bold; cursor: pointer;">淺色模式</button>
+                            <button class="theme-btn" data-theme-val="dark"
+                                style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--gray); background: var(--card-bg); color: var(--text-main); font-weight: bold; cursor: pointer;">深色模式</button>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <label>資料備份與還原</label>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button class="btn-primary" id="btn-export-data"
+                                style="flex: 1; font-size: 14px; background: var(--secondary); padding: 10px;">匯出
+                                (Export)</button>
+                            <label class="btn-primary" for="input-import-data"
+                                style="flex: 1; font-size: 14px; text-align: center; background: var(--secondary); cursor: pointer; display: flex; justify-content: center; align-items: center; margin: 0; padding: 10px;">
+                                匯入 (Import)
+                                <input type="file" id="input-import-data" accept=".json" style="display: none;">
+                            </label>
+                        </div>
+                    </div>
+                    <!-- 儲存按鈕 -->
+                    <button class="btn-primary" id="btn-save-settings">儲存設定</button>
+                    <!-- 清除資料按鈕 -->
+                    <button class="btn-danger" id="btn-clear-data" style="margin-top:20px;">清除所有資料</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部導航列 -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-target="dashboard">
+                <div class="nav-icon-wrapper">
+                    <span class="label">首頁</span>
+                </div>
+            </button>
+            <button class="nav-item add-btn" data-target="add">
+                <div class="nav-icon-wrapper">
+                    <span class="label">記帳</span>
+                </div>
+            </button>
+            <button class="nav-item" data-target="records">
+                <div class="nav-icon-wrapper">
+                    <span class="label">紀錄</span>
+                </div>
+            </button>
+            <button class="nav-item" data-target="stats">
+                <div class="nav-icon-wrapper">
+                    <span class="label">統計</span>
+                </div>
+            </button>
+            <button class="nav-item" data-target="settings">
+                <div class="nav-icon-wrapper">
+                    <span class="label">設定</span>
+                </div>
+            </button>
+        </nav>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
