@@ -30,8 +30,15 @@ function init() {
     setupNumpad();
     setupSettings();
     updateDashboard();
+    checkPwaMigration();
+}
 
-    // Check if new week to wipe data? Let's just calculate based on current week for now.
+function checkPwaMigration() {
+    const isStandalone = window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+    const hasNoData = state.expenses.length === 0;
+    const hint = document.getElementById('pwa-migration-hint');
+    if (hint) hint.style.display = (isStandalone && hasNoData) ? 'block' : 'none';
 }
 
 function loadState() {
