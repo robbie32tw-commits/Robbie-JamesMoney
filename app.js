@@ -235,10 +235,25 @@ function setupNumpad() {
 
             let expenseDate = new Date().toISOString();
             if (dateInput) {
-                // Parse date string as local time and preserve it for storing
                 const [y, m, d] = dateInput.split('-');
-                const localDate = new Date(y, m - 1, d);
-                expenseDate = localDate.toISOString();
+                // When editing, preserve original time if date hasn't changed
+                if (window.editRecordId) {
+                    const origRecord = state.expenses.find(e => e.id === window.editRecordId);
+                    if (origRecord) {
+                        const origDate = new Date(origRecord.date);
+                        const origDateStr = `${origDate.getFullYear()}-${String(origDate.getMonth() + 1).padStart(2, '0')}-${String(origDate.getDate()).padStart(2, '0')}`;
+                        if (origDateStr === dateInput) {
+                            expenseDate = origRecord.date;
+                        } else {
+                            const now = new Date();
+                            expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+                        }
+                    }
+                } else {
+                    // New record: use current time-of-day on the selected date
+                    const now = new Date();
+                    expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+                }
             }
 
             if (window.editRecordId) {
