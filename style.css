@@ -1133,5 +1133,21 @@ h3 {
     background: transparent;
     color: var(--danger);
     border: 1px dashed var(--danger);
-    opacity: 0.7;
+    opacity: 0.5;
+    cursor: pointer;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.meal-cell.missing::after {
+    content: '+';
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.meal-cell.missing:hover {
+    opacity: 1;
+    background: rgba(155, 93, 86, 0.08);
 }

@@ -656,12 +656,12 @@ function renderDailyStatsTable() {
     const nameA = state.payerAName || 'A';
     const nameB = state.payerBName || 'B';
 
-    const mealCell = (dayExp, category, payer) => {
+    const mealCell = (dayExp, category, payer, dateIso) => {
         const record = dayExp.find(e => e.category === category && e.payer === payer);
         if (record) {
             return `<div class="meal-cell recorded">NT$ ${record.amount.toLocaleString()}</div>`;
         }
-        return `<div class="meal-cell missing">漏記</div>`;
+        return `<div class="meal-cell missing" onclick="quickAddMeal('${dateIso}','${category}','${payer}')"></div>`;
     };
 
     let html = `
@@ -695,7 +695,11 @@ function renderDailyStatsTable() {
             return d >= dayStart && d <= dayEnd;
         });
 
-        const dayStr = `${day.getMonth() + 1}/${String(day.getDate()).padStart(2, '0')}`;
+        const yyyy = day.getFullYear();
+        const mm = String(day.getMonth() + 1).padStart(2, '0');
+        const dd = String(day.getDate()).padStart(2, '0');
+        const dateIso = `${yyyy}-${mm}-${dd}`;
+        const dayStr = `${day.getMonth() + 1}/${dd}`;
 
         const hasBrunchA = dayExp.some(e => e.category === 'brunch' && e.payer === 'A');
         const hasBrunchB = dayExp.some(e => e.category === 'brunch' && e.payer === 'B');
@@ -708,14 +712,14 @@ function renderDailyStatsTable() {
                 <div class="mcol-date">${dayStr}</div>
                 <div class="mcol-group">
                     <div class="mcol-pair">
-                        ${mealCell(dayExp, 'brunch', 'A')}
-                        ${mealCell(dayExp, 'brunch', 'B')}
+                        ${mealCell(dayExp, 'brunch', 'A', dateIso)}
+                        ${mealCell(dayExp, 'brunch', 'B', dateIso)}
                     </div>
                 </div>
                 <div class="mcol-group">
                     <div class="mcol-pair">
-                        ${mealCell(dayExp, 'dinner', 'A')}
-                        ${mealCell(dayExp, 'dinner', 'B')}
+                        ${mealCell(dayExp, 'dinner', 'A', dateIso)}
+                        ${mealCell(dayExp, 'dinner', 'B', dateIso)}
                     </div>
                 </div>
             </div>
@@ -725,6 +729,41 @@ function renderDailyStatsTable() {
     html += '</div>';
     container.innerHTML = html;
 }
+
+window.quickAddMeal = function (dateIso, category, payer) {
+    // Switch to add view
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-add').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.nav-item[data-target="add"]').classList.add('active');
+
+    resetAddForm();
+
+    // Pre-fill date
+    document.getElementById('expense-date').value = dateIso;
+
+    // Pre-select category
+    selectedCategory = category;
+    document.querySelectorAll('.category-item').forEach(el => {
+        if (el.getAttribute('data-cat') === category) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+
+    // Pre-select payer
+    selectedPayer = payer;
+    document.querySelectorAll('.payer-btn').forEach(btn => {
+        if (btn.getAttribute('data-payer') === payer) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    document.getElementById('abang-quote').innerText = '補記餐費中... ✏️';
+};
 
 function updateStatsPieChart(expenses, total) {
     const pieCenterValue = document.getElementById('stats-pie-center-value');
