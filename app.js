@@ -648,58 +648,65 @@ function renderStatsForMonth(monthStr) {
     document.getElementById('stats-settlement-card').innerHTML = settlementHtml;
 
     updateStatsPieChart(monthExpenses, totalSpent);
-    renderDailyStatsTable(year, month, monthExpenses);
+    renderDailyStatsTable();
 }
 
-function renderDailyStatsTable(yearStr, monthStr, expenses) {
+function renderDailyStatsTable() {
     const container = document.getElementById('stats-daily-table');
-    const year = parseInt(yearStr);
-    const month = parseInt(monthStr);
-    const daysInMonth = getDaysInMonth(year, month - 1);
+    const nameA = state.payerAName || 'A';
+    const nameB = state.payerBName || 'B';
 
-    let html = '<h3>每日結算</h3><div class="daily-list">';
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 13);
+    twoWeeksAgo.setHours(0, 0, 0, 0);
 
-    for (let i = 1; i <= daysInMonth; i++) {
-        const dayExp = expenses.filter(e => {
-            const d = new Date(e.date);
-            return d.getDate() === i;
-        });
+    let html = '<h3>最近兩週明細</h3><div class="daily-list">';
+
+    for (let i = 0; i < 14; i++) {
+        const day = new Date();
+        day.setDate(new Date().getDate() - i);
+        const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(day); dayEnd.setHours(23, 59, 59, 999);
+
+        const dayExp = state.expenses
+            .filter(e => { const d = new Date(e.date); return d >= dayStart && d <= dayEnd; })
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
 
         const dayTotal = dayExp.reduce((sum, e) => sum + e.amount, 0);
-        const dayStr = `${monthStr}/${String(i).padStart(2, '0')}`;
+        const dayStr = `${day.getMonth() + 1}/${String(day.getDate()).padStart(2, '0')}`;
 
-        // Generate category badges row
-        let catsHtml = '<div class="daily-cats-row">';
-        CATEGORIES.forEach(cat => {
-            const hasCat = dayExp.some(e => e.category === cat.id);
-            if (hasCat) {
-                catsHtml += `<div class="daily-cat-badge active" style="background:${cat.color}20;" title="${cat.name}">${cat.icon}</div>`;
-            } else {
-                catsHtml += `<div class="daily-cat-badge inactive" title="未記帳: ${cat.name}">${cat.icon}</div>`;
-            }
-        });
-        catsHtml += '</div>';
-
-        if (dayTotal > 0) {
+        if (dayExp.length > 0) {
+            let expRows = '';
+            dayExp.forEach(e => {
+                const cat = CATEGORIES.find(c => c.id === e.category) || { icon: '?', name: e.category };
+                const payerName = e.payer === 'A' ? nameA : nameB;
+                const detail = e.detail ? `<span class="exp-detail">${e.detail}</span>` : '';
+                expRows += `
+                    <div class="daily-exp-row">
+                        <span class="daily-payer-badge payer-${e.payer}">${payerName}</span>
+                        <span class="daily-exp-cat">${cat.icon} ${cat.name}</span>
+                        ${detail}
+                        <span class="daily-exp-amount">NT$ ${e.amount.toLocaleString()}</span>
+                    </div>`;
+            });
             html += `
                 <div class="daily-item expanded">
                     <div class="daily-item-header">
                         <span class="daily-date">${dayStr}</span>
-                        <span class="daily-amount danger">NT$ ${dayTotal.toLocaleString()}</span>
+                        <span class="daily-amount">NT$ ${dayTotal.toLocaleString()}</span>
                     </div>
-                    ${catsHtml}
-                </div>
-            `;
+                    <div class="daily-exp-list">${expRows}</div>
+                </div>`;
         } else {
             html += `
-                <div class="daily-item missed expanded">
+                <div class="daily-item missed">
                     <div class="daily-item-header">
                         <span class="daily-date">${dayStr}</span>
                         <span class="daily-amount text-muted">尚未記帳</span>
                     </div>
-                    ${catsHtml}
-                </div>
-            `;
+                </div>`;
         }
     }
 

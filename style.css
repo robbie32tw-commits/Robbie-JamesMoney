@@ -809,6 +809,60 @@ h3 {
     font-weight: 500;
 }
 
+/* --- Daily expense detail rows --- */
+.daily-exp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.daily-exp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+.daily-payer-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.daily-payer-badge.payer-A {
+    background: var(--primary-light, #e8f0fe);
+    color: var(--primary);
+}
+
+.daily-payer-badge.payer-B {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.daily-exp-cat {
+    color: var(--text-sub);
+    flex-shrink: 0;
+}
+
+.exp-detail {
+    color: var(--text-muted);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.daily-exp-amount {
+    font-weight: 700;
+    color: var(--danger);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
 /* --- Settings --- */
 .settings-content {
     padding: 24px;
