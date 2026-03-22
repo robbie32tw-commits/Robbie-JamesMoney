@@ -659,7 +659,8 @@ function renderDailyStatsTable() {
     const mealCell = (dayExp, category, payer, dateIso) => {
         const record = dayExp.find(e => e.category === category && e.payer === payer);
         if (record) {
-            return `<div class="meal-cell recorded">NT$ ${record.amount.toLocaleString()}</div>`;
+            const detailHtml = record.detail ? `<span class="meal-cell-detail">${record.detail}</span>` : '';
+            return `<div class="meal-cell recorded">NT$ ${record.amount.toLocaleString()}${detailHtml}</div>`;
         }
         return `<div class="meal-cell missing" onclick="quickAddMeal('${dateIso}','${category}','${payer}')"></div>`;
     };

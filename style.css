@@ -1127,6 +1127,20 @@ h3 {
 .meal-cell.recorded {
     background: var(--primary-light);
     color: var(--dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.meal-cell-detail {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .meal-cell.missing {
