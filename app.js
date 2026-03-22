@@ -656,13 +656,33 @@ function renderDailyStatsTable() {
     const nameA = state.payerAName || 'A';
     const nameB = state.payerBName || 'B';
 
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 13);
-    twoWeeksAgo.setHours(0, 0, 0, 0);
+    const mealCell = (dayExp, category, payer) => {
+        const record = dayExp.find(e => e.category === category && e.payer === payer);
+        if (record) {
+            return `<div class="meal-cell recorded">NT$ ${record.amount.toLocaleString()}</div>`;
+        }
+        return `<div class="meal-cell missing">漏記</div>`;
+    };
 
-    let html = '<h3>最近兩週明細</h3><div class="daily-list">';
+    let html = `
+        <h3>最近兩週早午餐 & 晚餐</h3>
+        <div class="meal-check-grid">
+            <div class="meal-check-header">
+                <div class="mcol-date"></div>
+                <div class="mcol-group">
+                    <div class="mcol-label">🍳 早午餐</div>
+                    <div class="mcol-pair">
+                        <span>${nameA}</span><span>${nameB}</span>
+                    </div>
+                </div>
+                <div class="mcol-group">
+                    <div class="mcol-label">🍜 晚餐</div>
+                    <div class="mcol-pair">
+                        <span>${nameA}</span><span>${nameB}</span>
+                    </div>
+                </div>
+            </div>
+    `;
 
     for (let i = 0; i < 14; i++) {
         const day = new Date();
@@ -670,44 +690,36 @@ function renderDailyStatsTable() {
         const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
         const dayEnd = new Date(day); dayEnd.setHours(23, 59, 59, 999);
 
-        const dayExp = state.expenses
-            .filter(e => { const d = new Date(e.date); return d >= dayStart && d <= dayEnd; })
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        const dayExp = state.expenses.filter(e => {
+            const d = new Date(e.date);
+            return d >= dayStart && d <= dayEnd;
+        });
 
-        const dayTotal = dayExp.reduce((sum, e) => sum + e.amount, 0);
         const dayStr = `${day.getMonth() + 1}/${String(day.getDate()).padStart(2, '0')}`;
 
-        if (dayExp.length > 0) {
-            let expRows = '';
-            dayExp.forEach(e => {
-                const cat = CATEGORIES.find(c => c.id === e.category) || { icon: '?', name: e.category };
-                const payerName = e.payer === 'A' ? nameA : nameB;
-                const detail = e.detail ? `<span class="exp-detail">${e.detail}</span>` : '';
-                expRows += `
-                    <div class="daily-exp-row">
-                        <span class="daily-payer-badge payer-${e.payer}">${payerName}</span>
-                        <span class="daily-exp-cat">${cat.icon} ${cat.name}</span>
-                        ${detail}
-                        <span class="daily-exp-amount">NT$ ${e.amount.toLocaleString()}</span>
-                    </div>`;
-            });
-            html += `
-                <div class="daily-item expanded">
-                    <div class="daily-item-header">
-                        <span class="daily-date">${dayStr}</span>
-                        <span class="daily-amount">NT$ ${dayTotal.toLocaleString()}</span>
+        const hasBrunchA = dayExp.some(e => e.category === 'brunch' && e.payer === 'A');
+        const hasBrunchB = dayExp.some(e => e.category === 'brunch' && e.payer === 'B');
+        const hasDinnerA = dayExp.some(e => e.category === 'dinner' && e.payer === 'A');
+        const hasDinnerB = dayExp.some(e => e.category === 'dinner' && e.payer === 'B');
+        const hasAnyMissing = !hasBrunchA || !hasBrunchB || !hasDinnerA || !hasDinnerB;
+
+        html += `
+            <div class="meal-check-row ${hasAnyMissing ? 'row-missing' : ''}">
+                <div class="mcol-date">${dayStr}</div>
+                <div class="mcol-group">
+                    <div class="mcol-pair">
+                        ${mealCell(dayExp, 'brunch', 'A')}
+                        ${mealCell(dayExp, 'brunch', 'B')}
                     </div>
-                    <div class="daily-exp-list">${expRows}</div>
-                </div>`;
-        } else {
-            html += `
-                <div class="daily-item missed">
-                    <div class="daily-item-header">
-                        <span class="daily-date">${dayStr}</span>
-                        <span class="daily-amount text-muted">尚未記帳</span>
+                </div>
+                <div class="mcol-group">
+                    <div class="mcol-pair">
+                        ${mealCell(dayExp, 'dinner', 'A')}
+                        ${mealCell(dayExp, 'dinner', 'B')}
                     </div>
-                </div>`;
-        }
+                </div>
+            </div>
+        `;
     }
 
     html += '</div>';

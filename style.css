@@ -1030,3 +1030,108 @@ h3 {
 .nav-item.active .icon {
     transform: translateY(-3px) scale(1.1);
 }
+
+/* --- Meal Check Grid (Stats daily table) --- */
+.meal-check-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.meal-check-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 6px 0 8px;
+    border-bottom: 2px solid var(--primary-light);
+}
+
+.meal-check-header .mcol-date {
+    flex: 0 0 52px;
+}
+
+.meal-check-header .mcol-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.mcol-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-align: center;
+}
+
+.mcol-pair {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    justify-content: center;
+}
+
+.mcol-pair > span {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.meal-check-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--primary-light);
+}
+
+.meal-check-row.row-missing {
+    background: rgba(155, 93, 86, 0.05);
+    border-radius: 6px;
+    padding-left: 4px;
+}
+
+.mcol-date {
+    flex: 0 0 52px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.meal-check-row .mcol-group {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.meal-check-row .mcol-pair {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    justify-content: center;
+}
+
+.meal-cell {
+    flex: 1;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 2px;
+    border-radius: 4px;
+    line-height: 1.3;
+}
+
+.meal-cell.recorded {
+    background: var(--primary-light);
+    color: var(--dark);
+}
+
+.meal-cell.missing {
+    background: transparent;
+    color: var(--danger);
+    border: 1px dashed var(--danger);
+    opacity: 0.7;
+}
