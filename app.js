@@ -160,16 +160,62 @@ function setupNumpad() {
         });
     });
 
-    const evaluateExpression = () => {
-        try {
-            const sanitized = currentInputAmount.replace(/[^-()\d/*+.]/g, '');
-            const res = new Function('return ' + sanitized)();
-            if (!isNaN(res) && isFinite(res)) {
-                currentInputAmount = Math.max(0, Math.floor(res)).toString();
-                inputDisplay.innerText = formatDisplay(currentInputAmount);
+    const safeEval = (expr) => {
+        // Tokenize and evaluate simple math expressions (+, -, *, /) safely
+        const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
+        if (!tokens) return NaN;
+        // Only allow safe characters
+        if (!/^[\d+\-*/(). ]+$/.test(expr)) return NaN;
+
+        // Simple recursive descent parser for +, -, *, /
+        let pos = 0;
+        const parseExpr = () => {
+            let result = parseTerm();
+            while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+                const op = tokens[pos++];
+                const right = parseTerm();
+                result = op === '+' ? result + right : result - right;
             }
-        } catch (err) {
-            // override or ignore invalid expression
+            return result;
+        };
+        const parseTerm = () => {
+            let result = parseFactor();
+            while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+                const op = tokens[pos++];
+                const right = parseFactor();
+                if (op === '/' && right === 0) return NaN;
+                result = op === '*' ? result * right : result / right;
+            }
+            return result;
+        };
+        const parseFactor = () => {
+            if (tokens[pos] === '(') {
+                pos++; // skip '('
+                const result = parseExpr();
+                pos++; // skip ')'
+                return result;
+            }
+            if (tokens[pos] === '-') {
+                pos++;
+                return -parseFactor();
+            }
+            return parseFloat(tokens[pos++]);
+        };
+
+        try {
+            const result = parseExpr();
+            return pos === tokens.length ? result : NaN;
+        } catch (e) {
+            return NaN;
+        }
+    };
+
+    const evaluateExpression = () => {
+        const sanitized = currentInputAmount.replace(/[^-()\d/*+.]/g, '');
+        const res = safeEval(sanitized);
+        if (!isNaN(res) && isFinite(res)) {
+            currentInputAmount = Math.max(0, Math.floor(res)).toString();
+            inputDisplay.innerText = formatDisplay(currentInputAmount);
         }
     };
 
@@ -189,10 +235,25 @@ function setupNumpad() {
 
             let expenseDate = new Date().toISOString();
             if (dateInput) {
-                // Parse date string as local time and preserve it for storing
                 const [y, m, d] = dateInput.split('-');
-                const localDate = new Date(y, m - 1, d);
-                expenseDate = localDate.toISOString();
+                // When editing, preserve original time if date hasn't changed
+                if (window.editRecordId) {
+                    const origRecord = state.expenses.find(e => e.id === window.editRecordId);
+                    if (origRecord) {
+                        const origDate = new Date(origRecord.date);
+                        const origDateStr = `${origDate.getFullYear()}-${String(origDate.getMonth() + 1).padStart(2, '0')}-${String(origDate.getDate()).padStart(2, '0')}`;
+                        if (origDateStr === dateInput) {
+                            expenseDate = origRecord.date;
+                        } else {
+                            const now = new Date();
+                            expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+                        }
+                    }
+                } else {
+                    // New record: use current time-of-day on the selected date
+                    const now = new Date();
+                    expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
+                }
             }
 
             if (window.editRecordId) {
@@ -313,11 +374,13 @@ function isSameDay(d1, d2) {
 }
 
 function isSameWeek(d1, d2) {
-    const oneJan = new Date(d1.getFullYear(), 0, 1);
-    const w1 = Math.ceil((((d1.getTime() - oneJan.getTime()) / 86400000) + oneJan.getDay() + 1) / 7);
-    const oneJan2 = new Date(d2.getFullYear(), 0, 1);
-    const w2 = Math.ceil((((d2.getTime() - oneJan2.getTime()) / 86400000) + oneJan2.getDay() + 1) / 7);
-    return w1 === w2 && d1.getFullYear() === d2.getFullYear();
+    // Get the Sunday of each date's week
+    const getWeekStart = (d) => {
+        const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        day.setDate(day.getDate() - day.getDay());
+        return day.getTime();
+    };
+    return getWeekStart(d1) === getWeekStart(d2);
 }
 
 function isSameMonth(d1, d2) {
@@ -557,7 +620,7 @@ function renderStatsForMonth(monthStr) {
     const totalB = monthExpenses.filter(e => e.payer === 'B').reduce((sum, e) => sum + e.amount, 0);
     const nameA = state.payerAName || 'A';
     const nameB = state.payerBName || 'B';
-    const halfDiff = Math.abs(totalA - totalB) / 2;
+    const halfDiff = Math.round(Math.abs(totalA - totalB) / 2);
 
     let settlementHtml = `
         <h3>雙人結算</h3>
