@@ -961,25 +961,22 @@ h3 {
     width: 56px;
     height: 56px;
     background: var(--primary);
+    /* All brown default */
     border-radius: 50%;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 1px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    /* Soft shadow */
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     border: 2px solid transparent;
-}
-
-.nav-icon-wrapper span.icon {
-    font-size: 18px;
-    line-height: 1;
+    /* Prepare for border transition */
 }
 
 .nav-icon-wrapper span.label {
     color: white;
-    font-size: 10px;
+    /* White text for all */
+    font-size: 14px;
     font-weight: 800;
     line-height: 1;
     transition: all 0.3s;
