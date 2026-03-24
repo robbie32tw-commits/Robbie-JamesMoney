@@ -85,6 +85,8 @@ function hideRoomModal() {
 function updateRoomCodeDisplay() {
     const el = document.getElementById('display-room-code');
     if (el) el.textContent = roomCode || '------';
+    const ver = document.getElementById('version-room');
+    if (ver) ver.textContent = roomCode ? `房間 ${roomCode}` : '未連線';
 }
 
 async function createRoom() {
