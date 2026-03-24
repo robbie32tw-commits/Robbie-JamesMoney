@@ -1165,3 +1165,16 @@ h3 {
     opacity: 1;
     background: rgba(155, 93, 86, 0.08);
 }
+/* ── Version Info ── */
+.version-info {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-sub, #999);
+    padding: 12px 0 20px;
+    opacity: 0.6;
+    letter-spacing: 0.3px;
+}
+.version-sep {
+    margin: 0 5px;
+    opacity: 0.4;
+}

@@ -1,3 +1,18 @@
+// ====== Firebase Setup ======
+const firebaseConfig = {
+    apiKey: "AIzaSyBC-sb_fWclij6zjpLkrjrWxBOyi8YMY4s",
+    authDomain: "rjmoney-75aa1.firebaseapp.com",
+    projectId: "rjmoney-75aa1",
+    storageBucket: "rjmoney-75aa1.firebasestorage.app",
+    messagingSenderId: "486707027041",
+    appId: "1:486707027041:web:ccf1c3875487e1f2bede20"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let roomCode = null;
+let unsubscribeSync = null;
+
 // ====== Configuration & State ======
 const CATEGORIES = [
     { id: 'brunch', name: '早午餐', icon: '🍳', color: '#E9C46A' },
@@ -23,7 +38,10 @@ let selectedPayer = 'A';
 
 // ====== Core Methods ======
 function init() {
-    loadState();
+    // Load local state immediately for fast first render
+    const saved = localStorage.getItem('abangState');
+    if (saved) state = JSON.parse(saved);
+
     document.documentElement.setAttribute('data-theme', state.theme || 'light');
     setupNavigation();
     renderCategories();
@@ -31,20 +49,100 @@ function init() {
     setupSettings();
     updateDashboard();
 
-    // Check if new week to wipe data? Let's just calculate based on current week for now.
-}
-
-function loadState() {
-    const saved = localStorage.getItem('abangState');
-    if (saved) {
-        state = JSON.parse(saved);
+    // Set up Firebase room
+    roomCode = localStorage.getItem('abangRoomCode');
+    if (roomCode) {
+        updateRoomCodeDisplay();
+        startRealtimeSync();
     } else {
-        saveState();
+        showRoomModal();
     }
 }
 
 function saveState() {
     localStorage.setItem('abangState', JSON.stringify(state));
+    if (roomCode) {
+        db.collection('rooms').doc(roomCode).set(state).catch(err => {
+            console.error('Firestore sync failed:', err);
+        });
+    }
+}
+
+// ====== Firebase Room Sync ======
+function generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function showRoomModal() {
+    document.getElementById('room-modal').style.display = 'flex';
+}
+
+function hideRoomModal() {
+    document.getElementById('room-modal').style.display = 'none';
+}
+
+function updateRoomCodeDisplay() {
+    const el = document.getElementById('display-room-code');
+    if (el) el.textContent = roomCode || '------';
+    const ver = document.getElementById('version-room');
+    if (ver) ver.textContent = roomCode ? `房間 ${roomCode}` : '未連線';
+}
+
+async function createRoom() {
+    const code = generateRoomCode();
+    roomCode = code;
+    localStorage.setItem('abangRoomCode', roomCode);
+    updateRoomCodeDisplay();
+    await db.collection('rooms').doc(roomCode).set(state);
+    hideRoomModal();
+    startRealtimeSync();
+    alert(`你的房間碼是：${roomCode}\n\n把這組碼分享給對方，對方在「加入房間」輸入即可同步！`);
+}
+
+async function joinRoom(code) {
+    code = code.toUpperCase().trim();
+    if (code.length < 4) {
+        alert('請輸入正確的房間碼');
+        return;
+    }
+    const doc = await db.collection('rooms').doc(code).get();
+    if (!doc.exists) {
+        alert('找不到此房間碼，請確認後再試');
+        return;
+    }
+    roomCode = code;
+    localStorage.setItem('abangRoomCode', roomCode);
+    state = doc.data();
+    localStorage.setItem('abangState', JSON.stringify(state));
+    document.documentElement.setAttribute('data-theme', state.theme || 'light');
+    updateRoomCodeDisplay();
+    hideRoomModal();
+    startRealtimeSync();
+    renderCurrentView();
+}
+
+function startRealtimeSync() {
+    if (unsubscribeSync) unsubscribeSync();
+    unsubscribeSync = db.collection('rooms').doc(roomCode).onSnapshot((doc) => {
+        if (doc.exists) {
+            state = doc.data();
+            localStorage.setItem('abangState', JSON.stringify(state));
+            document.documentElement.setAttribute('data-theme', state.theme || 'light');
+            renderCurrentView();
+        }
+    }, (err) => {
+        console.error('Sync listener error:', err);
+    });
+}
+
+function renderCurrentView() {
+    const activeView = document.querySelector('.view.active');
+    if (!activeView) return;
+    const id = activeView.id;
+    if (id === 'view-dashboard') updateDashboard();
+    else if (id === 'view-records') renderRecords();
+    else if (id === 'view-stats') initStatsView();
 }
 
 // ====== View Navigation ======
@@ -810,6 +908,28 @@ function updateStatsPieChart(expenses, total) {
 }
 
 function setupSettings() {
+    // Room modal buttons
+    document.getElementById('btn-new-room').addEventListener('click', createRoom);
+    document.getElementById('btn-join-room').addEventListener('click', () => {
+        const code = document.getElementById('input-room-code').value;
+        joinRoom(code);
+    });
+    document.getElementById('input-room-code').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            joinRoom(e.target.value);
+        }
+    });
+
+    // Copy room code
+    document.getElementById('btn-copy-room-code').addEventListener('click', () => {
+        if (!roomCode) return;
+        navigator.clipboard.writeText(roomCode).then(() => {
+            const btn = document.getElementById('btn-copy-room-code');
+            btn.textContent = '已複製！';
+            setTimeout(() => { btn.textContent = '複製'; }, 2000);
+        });
+    });
+
     document.querySelectorAll('.theme-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.theme-btn').forEach(b => {
@@ -851,7 +971,7 @@ function setupSettings() {
     document.getElementById('btn-clear-data').addEventListener('click', () => {
         if (confirm('確定要清除所有記帳紀錄嗎？阿邦會很傷心的 😿')) {
             state.expenses = [];
-            saveState();
+            saveState(); // syncs to Firestore
             document.querySelector('[data-target="dashboard"]').click();
         }
     });
@@ -883,7 +1003,7 @@ function setupSettings() {
                 const importedState = JSON.parse(event.target.result);
                 if (importedState && typeof importedState === 'object' && Array.isArray(importedState.expenses)) {
                     state = importedState;
-                    saveState();
+                    saveState(); // syncs to Firestore
                     document.documentElement.setAttribute('data-theme', state.theme || 'light');
                     document.querySelector('[data-target="dashboard"]').click();
                     alert('資料匯入成功！');
