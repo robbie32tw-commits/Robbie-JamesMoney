@@ -362,6 +362,186 @@
             color: var(--text);
         }
 
+        /* ── Edit Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 300;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 28px 28px 24px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            animation: modal-in 0.18s ease;
+        }
+        @keyframes modal-in {
+            from { transform: scale(0.95) translateY(8px); opacity: 0; }
+            to   { transform: scale(1)    translateY(0);   opacity: 1; }
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--sub);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 6px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Noto Sans TC', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .form-input:focus { border-color: var(--primary); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .cat-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            margin-top: 2px;
+        }
+        .cat-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 8px 4px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            background: var(--bg);
+            transition: border-color 0.15s, background 0.15s;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--sub);
+        }
+        .cat-option .cat-emoji { font-size: 20px; }
+        .cat-option.selected {
+            border-color: var(--primary);
+            background: rgba(188,163,127,0.12);
+            color: var(--text);
+        }
+        .payer-row { display: flex; gap: 10px; }
+        .payer-option {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--sub);
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
+        }
+        .payer-option.selected-a {
+            border-color: #2A9D8F;
+            background: #E8F4F1;
+            color: #2A9D8F;
+        }
+        .payer-option.selected-b {
+            border-color: #E76F51;
+            background: #FDF3E7;
+            color: #E76F51;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-actions .btn-cancel {
+            flex: 1;
+            padding: 11px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--sub);
+            cursor: pointer;
+        }
+        .modal-actions .btn-cancel:hover { background: var(--bg); }
+        .modal-actions .btn-save {
+            flex: 2;
+            padding: 11px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .modal-actions .btn-save:hover { opacity: 0.88; }
+        .modal-actions .btn-del {
+            padding: 11px 16px;
+            border-radius: 10px;
+            border: none;
+            background: #FDF0EE;
+            color: var(--danger);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .modal-actions .btn-del:hover { background: #fce0db; }
+
+        /* Action buttons in table */
+        .act-btn {
+            padding: 4px 10px;
+            border-radius: 7px;
+            border: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: opacity 0.15s;
+        }
+        .act-btn:hover { opacity: 0.75; }
+        .act-edit { background: #EEE9E0; color: var(--secondary); }
+        .act-del  { background: #FDF0EE; color: var(--danger); margin-left: 5px; }
+        .btn-add-record {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-add-record:hover { opacity: 0.88; }
+
         /* ── Disconnected overlay ── */
         #connect-overlay {
             position: fixed;
@@ -429,6 +609,49 @@
     </style>
 </head>
 <body>
+
+<!-- Edit / Add Modal -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal-card">
+        <div class="modal-title" id="modal-title">新增記帳</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>日期</label>
+                <input type="date" class="form-input" id="modal-date">
+            </div>
+            <div class="form-group">
+                <label>金額 (NT$)</label>
+                <input type="number" class="form-input" id="modal-amount" min="1" placeholder="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>類別</label>
+            <div class="cat-grid" id="modal-cat-grid">
+                <div class="cat-option" data-cat="brunch"><span class="cat-emoji">🍳</span>早午餐</div>
+                <div class="cat-option" data-cat="dinner"><span class="cat-emoji">🍜</span>晚餐宵夜</div>
+                <div class="cat-option" data-cat="drinks"><span class="cat-emoji">🧋</span>飲料甜點</div>
+                <div class="cat-option" data-cat="alcohol"><span class="cat-emoji">🍻</span>喝酒</div>
+                <div class="cat-option" data-cat="others"><span class="cat-emoji">✨</span>其他</div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>付款人</label>
+            <div class="payer-row" id="modal-payer-row">
+                <div class="payer-option" data-payer="A" id="payer-opt-a">A</div>
+                <div class="payer-option" data-payer="B" id="payer-opt-b">B</div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>備註（選填）</label>
+            <input type="text" class="form-input" id="modal-detail" placeholder="寫點備註…" maxlength="80">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-del" id="modal-del-btn" style="display:none">刪除</button>
+            <button class="btn-cancel" id="modal-cancel-btn">取消</button>
+            <button class="btn-save" id="modal-save-btn">儲存</button>
+        </div>
+    </div>
+</div>
 
 <!-- Connect overlay (shown until room code entered) -->
 <div id="connect-overlay">
@@ -518,6 +741,7 @@
         <div class="table-toolbar">
             <h3>消費紀錄</h3>
             <span class="record-count" id="record-count"></span>
+            <button class="btn-add-record" id="btn-add-record">＋ 新增</button>
             <select class="filter-select" id="filter-month">
                 <option value="">全部月份</option>
             </select>
@@ -542,6 +766,7 @@
                         <th data-col="category">類別<span class="sort-icon"></span></th>
                         <th data-col="payer">付款人<span class="sort-icon"></span></th>
                         <th>備註</th>
+                        <th style="width:100px;cursor:default;"></th>
                     </tr>
                 </thead>
                 <tbody id="table-body"></tbody>
@@ -809,19 +1034,24 @@ function renderTable() {
 
     const tbody = document.getElementById('table-body');
     if (sorted.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5"><div class="table-empty"><div class="empty-icon">🐾</div><div>沒有符合條件的紀錄</div></div></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6"><div class="table-empty"><div class="empty-icon">🐾</div><div>沒有符合條件的紀錄</div></div></td></tr>`;
     } else {
         tbody.innerHTML = sorted.map(e => {
             const cat = CAT_MAP[e.category] || { name: e.category, icon: '•', color: '#ccc' };
             const payerName = e.payer === 'A' ? nameA : nameB;
             const dateObj = new Date(e.date);
             const dateStr = `${dateObj.getFullYear()}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${String(dateObj.getDate()).padStart(2,'0')}`;
+            const eid = e.id.replace(/'/g, "\\'");
             return `<tr>
                 <td>${dateStr}</td>
                 <td class="td-amount">${e.amount.toLocaleString()}</td>
                 <td><span class="cat-badge" style="background:${cat.color}22; color:${cat.color}">${cat.icon} ${cat.name}</span></td>
                 <td><span class="payer-badge payer-${e.payer.toLowerCase()}">${payerName}</span></td>
                 <td class="td-detail">${e.detail || '—'}</td>
+                <td style="white-space:nowrap">
+                    <button class="act-btn act-edit" onclick="openEditModal('${eid}')">編輯</button>
+                    <button class="act-btn act-del"  onclick="confirmDelete('${eid}')">刪除</button>
+                </td>
             </tr>`;
         }).join('');
     }
@@ -887,6 +1117,149 @@ if (roomCode) {
 } else {
     setStatus(false, '未連線');
 }
+
+// ── Edit / Add Modal ──
+let editingId = null;
+let modalCat   = 'brunch';
+let modalPayer = 'A';
+
+function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function openModal({ id, date, amount, category, detail, payer } = {}) {
+    editingId = id || null;
+    const isNew = !id;
+
+    document.getElementById('modal-title').textContent = isNew ? '新增記帳' : '編輯記帳';
+    document.getElementById('modal-date').value   = date   || todayStr();
+    document.getElementById('modal-amount').value = amount || '';
+    document.getElementById('modal-detail').value = detail || '';
+    document.getElementById('modal-del-btn').style.display = isNew ? 'none' : '';
+
+    // Category
+    modalCat = category || 'brunch';
+    document.querySelectorAll('.cat-option').forEach(el => {
+        el.classList.toggle('selected', el.dataset.cat === modalCat);
+    });
+
+    // Payer labels
+    const nameA = (state && state.payerAName) || 'A';
+    const nameB = (state && state.payerBName) || 'B';
+    document.getElementById('payer-opt-a').textContent = nameA;
+    document.getElementById('payer-opt-b').textContent = nameB;
+
+    modalPayer = payer || 'A';
+    updatePayerUI();
+
+    document.getElementById('edit-modal').classList.add('open');
+    document.getElementById('modal-amount').focus();
+}
+
+function openAddModal() {
+    openModal();
+}
+
+function openEditModal(id) {
+    const e = (state.expenses || []).find(x => x.id === id);
+    if (!e) return;
+    openModal(e);
+}
+
+function closeModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+    editingId = null;
+}
+
+function updatePayerUI() {
+    document.getElementById('payer-opt-a').className =
+        'payer-option' + (modalPayer === 'A' ? ' selected-a' : '');
+    document.getElementById('payer-opt-b').className =
+        'payer-option' + (modalPayer === 'B' ? ' selected-b' : '');
+}
+
+// Category click
+document.getElementById('modal-cat-grid').addEventListener('click', e => {
+    const opt = e.target.closest('.cat-option');
+    if (!opt) return;
+    modalCat = opt.dataset.cat;
+    document.querySelectorAll('.cat-option').forEach(el =>
+        el.classList.toggle('selected', el.dataset.cat === modalCat));
+});
+
+// Payer click
+document.getElementById('modal-payer-row').addEventListener('click', e => {
+    const opt = e.target.closest('.payer-option');
+    if (!opt) return;
+    modalPayer = opt.dataset.payer;
+    updatePayerUI();
+});
+
+// Save
+document.getElementById('modal-save-btn').addEventListener('click', async () => {
+    const dateVal   = document.getElementById('modal-date').value;
+    const amountVal = parseInt(document.getElementById('modal-amount').value);
+    const detailVal = document.getElementById('modal-detail').value.trim();
+
+    if (!dateVal) { alert('請選擇日期'); return; }
+    if (!amountVal || amountVal <= 0) { alert('請輸入金額'); return; }
+
+    const expenses = [...(state.expenses || [])];
+    if (editingId) {
+        const idx = expenses.findIndex(e => e.id === editingId);
+        if (idx !== -1) {
+            expenses[idx] = { ...expenses[idx], date: dateVal, amount: amountVal, category: modalCat, payer: modalPayer, detail: detailVal };
+        }
+    } else {
+        expenses.push({
+            id: Date.now().toString(),
+            date: dateVal,
+            amount: amountVal,
+            category: modalCat,
+            payer: modalPayer,
+            detail: detailVal
+        });
+    }
+
+    await db.collection('rooms').doc(roomCode).update({ expenses });
+    closeModal();
+});
+
+// Delete button inside modal
+document.getElementById('modal-del-btn').addEventListener('click', () => {
+    if (editingId) {
+        closeModal();
+        confirmDelete(editingId);
+    }
+});
+
+// Cancel
+document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
+
+// Close on overlay click
+document.getElementById('edit-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('edit-modal')) closeModal();
+});
+
+// Delete (called from row button or modal delete)
+function confirmDelete(id) {
+    const e = (state.expenses || []).find(x => x.id === id);
+    if (!e) return;
+    const cat = CAT_MAP[e.category] || { name: e.category };
+    const dateStr = e.date;
+    if (!confirm(`確定刪除這筆紀錄？\n${dateStr}｜NT$ ${e.amount.toLocaleString()}｜${cat.name}`)) return;
+    const expenses = (state.expenses || []).filter(x => x.id !== id);
+    db.collection('rooms').doc(roomCode).update({ expenses });
+}
+
+// Add button
+document.getElementById('btn-add-record').addEventListener('click', openAddModal);
+
+// Keyboard shortcut: Escape to close modal
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+});
 </script>
 </body>
 </html>
