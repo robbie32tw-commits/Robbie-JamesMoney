@@ -232,12 +232,15 @@
                         </div>
                     </div>
                     <div class="setting-group">
+                        <label>同步房間碼</label>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                            <div id="display-room-code" style="flex:1; padding:12px; background:var(--bg); border-radius:10px; font-size:22px; letter-spacing:6px; text-align:center; font-weight:bold; color:var(--primary); border:1px solid var(--gray);">------</div>
+                            <button id="btn-copy-room-code" class="btn-primary" style="font-size:13px; padding:12px 14px; background:var(--secondary); white-space:nowrap;">複製</button>
+                        </div>
+                        <p style="font-size:12px; color:var(--text-sub); margin-top:6px;">把房間碼分享給對方，兩人輸入同一組碼即可同步記帳</p>
+                    </div>
+                    <div class="setting-group">
                         <label>資料備份與還原</label>
-                        <p id="pwa-migration-hint" style="display:none; font-size:13px; color: var(--accent); background: rgba(188,163,127,0.12); border-radius:8px; padding:10px; margin: 8px 0; line-height:1.6;">
-                            📱 你是從主畫面開啟的！<br>
-                            主畫面 App 與 Safari 的資料是分開的。<br>
-                            請先在 <strong>Safari 瀏覽器</strong>開啟此網頁 → 設定 → <strong>匯出</strong>，再回來這裡 <strong>匯入</strong>即可還原紀錄。
-                        </p>
                         <div style="display: flex; gap: 8px; margin-top: 8px;">
                             <button class="btn-primary" id="btn-export-data"
                                 style="flex: 1; font-size: 14px; background: var(--secondary); padding: 10px;">匯出
@@ -256,6 +259,24 @@
                 </div>
             </section>
         </main>
+
+        <!-- 配對房間碼 Modal -->
+        <div id="room-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; justify-content:center; align-items:center; padding:24px;">
+            <div style="background:var(--card-bg); border-radius:24px; padding:32px 24px; max-width:360px; width:100%; text-align:center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                <img src="./assets/abang_character.png" alt="阿邦" style="width:80px; margin-bottom:16px;">
+                <h2 style="font-size:20px; margin-bottom:8px; color:var(--text-main);">雙人記帳配對</h2>
+                <p style="color:var(--text-sub); font-size:14px; margin-bottom:24px; line-height:1.6;">建立或加入共同記帳房間<br>兩支手機即時同步</p>
+                <button id="btn-new-room" class="btn-primary" style="width:100%; margin-bottom:16px;">建立新房間</button>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+                    <div style="flex:1; height:1px; background:var(--gray);"></div>
+                    <span style="color:var(--text-sub); font-size:13px;">或加入現有房間</span>
+                    <div style="flex:1; height:1px; background:var(--gray);"></div>
+                </div>
+                <input id="input-room-code" type="text" placeholder="輸入房間碼" maxlength="6"
+                    style="width:100%; padding:14px; border-radius:12px; border:2px solid var(--gray); font-size:22px; text-align:center; letter-spacing:6px; text-transform:uppercase; background:var(--bg); color:var(--text-main); box-sizing:border-box; margin-bottom:12px; font-weight:bold;">
+                <button id="btn-join-room" class="btn-primary" style="width:100%; background:var(--secondary);">加入房間</button>
+            </div>
+        </div>
 
         <!-- 底部導航列 -->
         <nav class="bottom-nav">
@@ -287,6 +308,8 @@
         </nav>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
 </body>
 
