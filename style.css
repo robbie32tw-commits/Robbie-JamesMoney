@@ -1143,6 +1143,13 @@ h3 {
     max-width: 100%;
 }
 
+.meal-cell-count {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: block;
+}
+
 .meal-cell.missing {
     background: transparent;
     color: var(--danger);

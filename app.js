@@ -692,10 +692,14 @@ function renderDailyStatsTable() {
     const nameB = state.payerBName || 'B';
 
     const mealCell = (dayExp, category, payer, dateIso) => {
-        const record = dayExp.find(e => e.category === category && e.payer === payer);
-        if (record) {
-            const detailHtml = record.detail ? `<span class="meal-cell-detail">${record.detail.slice(0, 5)}</span>` : '';
-            return `<div class="meal-cell recorded">NT$ ${record.amount.toLocaleString()}${detailHtml}</div>`;
+        const records = dayExp.filter(e => e.category === category && e.payer === payer);
+        if (records.length === 1) {
+            const detailHtml = records[0].detail ? `<span class="meal-cell-detail">${records[0].detail.slice(0, 5)}</span>` : '';
+            return `<div class="meal-cell recorded">NT$ ${records[0].amount.toLocaleString()}${detailHtml}</div>`;
+        }
+        if (records.length > 1) {
+            const total = records.reduce((sum, e) => sum + e.amount, 0);
+            return `<div class="meal-cell recorded">NT$ ${total.toLocaleString()}<span class="meal-cell-count">(${records.length}筆)</span></div>`;
         }
         return `<div class="meal-cell missing" onclick="quickAddMeal('${dateIso}','${category}','${payer}')"></div>`;
     };
