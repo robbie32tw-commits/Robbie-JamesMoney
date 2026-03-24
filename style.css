@@ -1178,3 +1178,76 @@ h3 {
     margin: 0 5px;
     opacity: 0.4;
 }
+
+/* ===== 桌機版 RWD (min-width: 768px) ===== */
+@media (min-width: 768px) {
+    body {
+        align-items: stretch;
+    }
+
+    .app-container {
+        max-width: 100%;
+        flex-direction: row;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* 導覽列改為左側 sidebar */
+    .bottom-nav {
+        position: relative;
+        bottom: auto;
+        left: auto;
+        width: 100px;
+        height: 100vh;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 32px 8px 24px;
+        gap: 8px;
+        border-right: 1px solid var(--primary-light);
+        background: var(--card-bg);
+        pointer-events: auto;
+        flex-shrink: 0;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+    }
+
+    .nav-item {
+        flex: none;
+        width: 100%;
+    }
+
+    /* 主內容區域可捲動 */
+    .views {
+        flex: 1;
+        height: 100vh;
+        overflow-y: auto;
+        padding-bottom: 32px;
+    }
+
+    /* 各 view 的 header 置中加寬 */
+    .app-header {
+        max-width: 860px;
+        margin: 0 auto;
+        width: 100%;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+
+    /* 各 view 主要內容容器加寬置中 */
+    .dashboard-content,
+    .add-form,
+    .records-content,
+    .stats-content,
+    .settings-content {
+        max-width: 860px;
+        margin: 0 auto;
+        width: 100%;
+        padding-left: 40px;
+        padding-right: 40px;
+    }
+
+    /* add 記帳頁：表單不要太寬，保持易用性 */
+    .add-form {
+        max-width: 520px;
+    }
+}
