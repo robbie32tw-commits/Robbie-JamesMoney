@@ -1,16 +1,16 @@
 // ====== Firebase Setup ======
 const firebaseConfig = {
-    apiKey: "AIzaSyBC-sb_fWclij6zjpLkrjrWxBOyi8YMY4s",
-    authDomain: "rjmoney-75aa1.firebaseapp.com",
-    projectId: "rjmoney-75aa1",
-    storageBucket: "rjmoney-75aa1.firebasestorage.app",
-    messagingSenderId: "486707027041",
-    appId: "1:486707027041:web:ccf1c3875487e1f2bede20"
+    apiKey: "AIzaSyCeBajZC6ixqh0cYCeRCpmgD8RcFsqAhbU",
+    authDomain: "robbie-james-money.firebaseapp.com",
+    projectId: "robbie-james-money",
+    storageBucket: "robbie-james-money.firebasestorage.app",
+    messagingSenderId: "1017181391269",
+    appId: "1:1017181391269:web:3a0d962daa314b8555c04c"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-let roomCode = null;
+const SHARED_DOC = 'shared';
 let unsubscribeSync = null;
 
 // ====== Configuration & State ======
@@ -48,83 +48,20 @@ function init() {
     setupNumpad();
     setupSettings();
     updateDashboard();
-
-    // Set up Firebase room
-    roomCode = localStorage.getItem('abangRoomCode');
-    if (roomCode) {
-        updateRoomCodeDisplay();
-        startRealtimeSync();
-    } else {
-        showRoomModal();
-    }
+    startRealtimeSync();
 }
 
 function saveState() {
     localStorage.setItem('abangState', JSON.stringify(state));
-    if (roomCode) {
-        db.collection('rooms').doc(roomCode).set(state).catch(err => {
-            console.error('Firestore sync failed:', err);
-        });
-    }
+    db.collection('rooms').doc(SHARED_DOC).set(state).catch(err => {
+        console.error('Firestore sync failed:', err);
+    });
 }
 
-// ====== Firebase Room Sync ======
-function generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
-
-function showRoomModal() {
-    document.getElementById('room-modal').style.display = 'flex';
-}
-
-function hideRoomModal() {
-    document.getElementById('room-modal').style.display = 'none';
-}
-
-function updateRoomCodeDisplay() {
-    const el = document.getElementById('display-room-code');
-    if (el) el.textContent = roomCode || '------';
-    const ver = document.getElementById('version-room');
-    if (ver) ver.textContent = roomCode ? `房間 ${roomCode}` : '未連線';
-}
-
-async function createRoom() {
-    const code = generateRoomCode();
-    roomCode = code;
-    localStorage.setItem('abangRoomCode', roomCode);
-    updateRoomCodeDisplay();
-    await db.collection('rooms').doc(roomCode).set(state);
-    hideRoomModal();
-    startRealtimeSync();
-    alert(`你的房間碼是：${roomCode}\n\n把這組碼分享給對方，對方在「加入房間」輸入即可同步！`);
-}
-
-async function joinRoom(code) {
-    code = code.toUpperCase().trim();
-    if (code.length < 4) {
-        alert('請輸入正確的房間碼');
-        return;
-    }
-    const doc = await db.collection('rooms').doc(code).get();
-    if (!doc.exists) {
-        alert('找不到此房間碼，請確認後再試');
-        return;
-    }
-    roomCode = code;
-    localStorage.setItem('abangRoomCode', roomCode);
-    state = doc.data();
-    localStorage.setItem('abangState', JSON.stringify(state));
-    document.documentElement.setAttribute('data-theme', state.theme || 'light');
-    updateRoomCodeDisplay();
-    hideRoomModal();
-    startRealtimeSync();
-    renderCurrentView();
-}
-
+// ====== Firebase Sync ======
 function startRealtimeSync() {
     if (unsubscribeSync) unsubscribeSync();
-    unsubscribeSync = db.collection('rooms').doc(roomCode).onSnapshot((doc) => {
+    unsubscribeSync = db.collection('rooms').doc(SHARED_DOC).onSnapshot((doc) => {
         if (doc.exists) {
             state = doc.data();
             localStorage.setItem('abangState', JSON.stringify(state));
@@ -908,28 +845,6 @@ function updateStatsPieChart(expenses, total) {
 }
 
 function setupSettings() {
-    // Room modal buttons
-    document.getElementById('btn-new-room').addEventListener('click', createRoom);
-    document.getElementById('btn-join-room').addEventListener('click', () => {
-        const code = document.getElementById('input-room-code').value;
-        joinRoom(code);
-    });
-    document.getElementById('input-room-code').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            joinRoom(e.target.value);
-        }
-    });
-
-    // Copy room code
-    document.getElementById('btn-copy-room-code').addEventListener('click', () => {
-        if (!roomCode) return;
-        navigator.clipboard.writeText(roomCode).then(() => {
-            const btn = document.getElementById('btn-copy-room-code');
-            btn.textContent = '已複製！';
-            setTimeout(() => { btn.textContent = '複製'; }, 2000);
-        });
-    });
-
     document.querySelectorAll('.theme-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.theme-btn').forEach(b => {

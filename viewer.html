@@ -653,19 +653,6 @@
     </div>
 </div>
 
-<!-- Connect overlay (shown until room code entered) -->
-<div id="connect-overlay">
-    <div class="connect-card">
-        <img src="./assets/abang_character.png" alt="阿邦">
-        <h2>阿邦記帳 桌面版</h2>
-        <p>輸入手機上的配對房間碼<br>即可在這裡即時查看記帳資料</p>
-        <div class="connect-input-row">
-            <input id="overlay-room-input" type="text" placeholder="房間碼" maxlength="6" autocomplete="off">
-            <button class="connect-btn" id="overlay-connect-btn">連線</button>
-        </div>
-    </div>
-</div>
-
 <!-- Header -->
 <header class="header">
     <div class="header-brand">
@@ -674,9 +661,7 @@
     </div>
     <div class="header-connect">
         <span class="status-dot" id="status-dot"></span>
-        <span class="status-label" id="status-label">未連線</span>
-        <input class="room-input" id="header-room-input" type="text" maxlength="6" placeholder="房間碼" autocomplete="off">
-        <button class="btn btn-primary" id="header-connect-btn">重新連線</button>
+        <span class="status-label" id="status-label">連線中…</span>
     </div>
 </header>
 
@@ -783,12 +768,12 @@
 <script>
 // ── Firebase setup ──
 const firebaseConfig = {
-    apiKey: "AIzaSyBC-sb_fWclij6zjpLkrjrWxBOyi8YMY4s",
-    authDomain: "rjmoney-75aa1.firebaseapp.com",
-    projectId: "rjmoney-75aa1",
-    storageBucket: "rjmoney-75aa1.firebasestorage.app",
-    messagingSenderId: "486707027041",
-    appId: "1:486707027041:web:ccf1c3875487e1f2bede20"
+    apiKey: "AIzaSyCeBajZC6ixqh0cYCeRCpmgD8RcFsqAhbU",
+    authDomain: "robbie-james-money.firebaseapp.com",
+    projectId: "robbie-james-money",
+    storageBucket: "robbie-james-money.firebasestorage.app",
+    messagingSenderId: "1017181391269",
+    appId: "1:1017181391269:web:3a0d962daa314b8555c04c"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -803,34 +788,24 @@ const CATEGORIES = [
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 let state = null;
-let roomCode = localStorage.getItem('abangRoomCode') || '';
+const SHARED_DOC = 'shared';
 let unsubscribe = null;
 let sortCol = 'amount';
 let sortDir = 'desc';
 
-// ── Connect logic ──
-function connect(code) {
-    code = code.toUpperCase().trim();
-    if (!code) return;
-    roomCode = code;
-    localStorage.setItem('abangRoomCode', code);
-    document.getElementById('header-room-input').value = code;
-    startSync();
-}
-
+// ── Sync logic ──
 function startSync() {
     if (unsubscribe) unsubscribe();
     setStatus(false, '連線中…');
-    unsubscribe = db.collection('rooms').doc(roomCode).onSnapshot(doc => {
+    unsubscribe = db.collection('rooms').doc(SHARED_DOC).onSnapshot(doc => {
         if (doc.exists) {
             state = doc.data();
-            document.getElementById('connect-overlay').style.display = 'none';
             setStatus(true, '即時同步中');
             buildMonthFilter();
             buildPayerFilter();
             render();
         } else {
-            setStatus(false, '找不到房間');
+            setStatus(false, '尚無資料');
         }
     }, err => {
         setStatus(false, '連線失敗');
@@ -1095,28 +1070,8 @@ document.querySelectorAll('thead th[data-col]').forEach(th => {
     });
 });
 
-// ── Connect buttons ──
-document.getElementById('overlay-connect-btn').addEventListener('click', () => {
-    connect(document.getElementById('overlay-room-input').value);
-});
-document.getElementById('overlay-room-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') connect(e.target.value);
-});
-document.getElementById('header-connect-btn').addEventListener('click', () => {
-    connect(document.getElementById('header-room-input').value);
-});
-document.getElementById('header-room-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') connect(e.target.value);
-});
-
-// ── Auto-connect if room code saved ──
-if (roomCode) {
-    document.getElementById('overlay-room-input').value = roomCode;
-    document.getElementById('header-room-input').value = roomCode;
-    connect(roomCode);
-} else {
-    setStatus(false, '未連線');
-}
+// ── Auto-connect on load ──
+startSync();
 
 // ── Edit / Add Modal ──
 let editingId = null;
@@ -1222,7 +1177,7 @@ document.getElementById('modal-save-btn').addEventListener('click', async () => 
         });
     }
 
-    await db.collection('rooms').doc(roomCode).update({ expenses });
+    await db.collection('rooms').doc(SHARED_DOC).update({ expenses });
     closeModal();
 });
 
@@ -1250,7 +1205,7 @@ function confirmDelete(id) {
     const dateStr = e.date;
     if (!confirm(`確定刪除這筆紀錄？\n${dateStr}｜NT$ ${e.amount.toLocaleString()}｜${cat.name}`)) return;
     const expenses = (state.expenses || []).filter(x => x.id !== id);
-    db.collection('rooms').doc(roomCode).update({ expenses });
+    db.collection('rooms').doc(SHARED_DOC).update({ expenses });
 }
 
 // Add button
