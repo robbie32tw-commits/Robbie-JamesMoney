@@ -791,6 +791,108 @@ function renderStatsForMonth(monthStr) {
 
     updateStatsPieChart(monthExpenses, totalSpent);
     renderDailyStatsTable();
+    renderDailyTrendChart(monthExpenses, year, month);
+    renderTop5(monthExpenses);
+}
+
+function renderDailyTrendChart(monthExpenses, year, month) {
+    const container = document.getElementById('stats-trend-chart');
+    if (!container) return;
+
+    if (!year || !month) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const totalDays = getDaysInMonth(parseInt(year), parseInt(month) - 1);
+    const BAR_MAX_H = 80; // px, matches .trend-bar-wrap height
+
+    const dailySpends = [];
+    for (let d = 1; d <= totalDays; d++) {
+        const dayStart = new Date(parseInt(year), parseInt(month) - 1, d, 0, 0, 0);
+        const dayEnd   = new Date(parseInt(year), parseInt(month) - 1, d, 23, 59, 59);
+        const total = monthExpenses
+            .filter(e => { const dt = new Date(e.date); return dt >= dayStart && dt <= dayEnd; })
+            .reduce((s, e) => s + e.amount, 0);
+        dailySpends.push({ day: d, total });
+    }
+
+    const maxSpend = Math.max(...dailySpends.map(d => d.total), state.dailyBudget, 1);
+    const budgetLinePx = (state.dailyBudget / maxSpend) * BAR_MAX_H;
+
+    const today = new Date();
+    const isCurrentMonth =
+        today.getFullYear() === parseInt(year) &&
+        (today.getMonth() + 1) === parseInt(month);
+
+    const barsHTML = dailySpends.map(({ day, total }) => {
+        const barH = total > 0 ? Math.max(2, (total / maxSpend) * BAR_MAX_H) : 0;
+        const isOver = total > state.dailyBudget;
+        const isToday = isCurrentMonth && today.getDate() === day;
+        return `
+            <div class="trend-col${isToday ? ' trend-today' : ''}">
+                <div class="trend-bar-wrap">
+                    ${total > 0
+                        ? `<div class="trend-bar${isOver ? ' over-budget' : ''}" style="height:${barH}px"></div>`
+                        : `<div class="trend-bar empty"></div>`}
+                </div>
+                <div class="trend-day-label">${day}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <h3>每日支出趨勢</h3>
+        <div class="trend-legend">
+            <span class="trend-legend-dot normal"></span><span>正常</span>
+            <span class="trend-legend-dot over"></span><span>超預算</span>
+            <span class="trend-legend-line"></span><span>每日預算 NT$${state.dailyBudget.toLocaleString()}</span>
+        </div>
+        <div class="trend-chart-scroll">
+            <div class="trend-chart">
+                ${barsHTML}
+                <div class="trend-budget-line" style="bottom: calc(20px + ${budgetLinePx}px)"></div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTop5(monthExpenses) {
+    const container = document.getElementById('stats-top5');
+    if (!container) return;
+
+    if (monthExpenses.length === 0) {
+        container.innerHTML = '<h3>本月 Top 5 支出</h3><p style="text-align:center;color:var(--text-muted);font-size:13px;padding:12px 0">無資料</p>';
+        return;
+    }
+
+    const top5 = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
+    const maxAmt = top5[0].amount;
+
+    const itemsHTML = top5.map((exp, i) => {
+        const cat = CATEGORIES.find(c => c.id === exp.category) || { icon: '?', name: '未知', color: '#888' };
+        const payer = exp.payer === 'A' ? (state.payerAName || 'A') : (state.payerBName || 'B');
+        const d = new Date(exp.date);
+        const dateStr = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
+        const barPct = (exp.amount / maxAmt) * 100;
+        return `
+            <div class="top5-item">
+                <div class="top5-rank">${i + 1}</div>
+                <div class="top5-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
+                <div class="top5-info">
+                    <span class="top5-name">${cat.name}${exp.detail ? ` · ${exp.detail}` : ''}</span>
+                    <span class="top5-meta">${dateStr} · ${payer}</span>
+                    <div class="top5-bar-bg"><div class="top5-bar" style="width:${barPct}%;background:${cat.color}"></div></div>
+                </div>
+                <div class="top5-amount">NT$&nbsp;${exp.amount.toLocaleString()}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <h3>本月 Top 5 支出</h3>
+        <div class="top5-list">${itemsHTML}</div>
+    `;
 }
 
 function renderDailyStatsTable() {
