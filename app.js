@@ -564,7 +564,6 @@ function renderDailyRecordSection() {
                         <span class="drc-cat-name">${cat.name}</span>
                         ${cellA}
                     </div>
-                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','A')">+</button>
                 </div>
                 <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','B')">
                     <span class="drc-icon">${cat.icon}</span>
@@ -572,7 +571,6 @@ function renderDailyRecordSection() {
                         <span class="drc-cat-name">${cat.name}</span>
                         ${cellB}
                     </div>
-                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','B')">+</button>
                 </div>
             </div>
         `;
