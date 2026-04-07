@@ -35,6 +35,7 @@ window.editRecordId = null;
 let currentInputAmount = '0';
 let selectedCategory = 'brunch';
 let selectedPayer = 'A';
+let dailyViewOffset = 0; // 0 = today, -1 = yesterday, ...
 
 // ====== Core Methods ======
 function init() {
@@ -506,7 +507,113 @@ function updateDashboard() {
 
     // Update Pie Chart
     updatePieChart(weeklyExpenses, weeklySpent, weeklyBudget);
+
+    // Render daily record section
+    renderDailyRecordSection();
 }
+
+function renderDailyRecordSection() {
+    const container = document.getElementById('daily-record-card');
+    if (!container) return;
+
+    const viewDate = new Date();
+    viewDate.setDate(viewDate.getDate() + dailyViewOffset);
+    viewDate.setHours(0, 0, 0, 0);
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const isToday = viewDate.getTime() === today.getTime();
+
+    const dayStart = new Date(viewDate);
+    const dayEnd = new Date(viewDate); dayEnd.setHours(23, 59, 59, 999);
+
+    const dayExpenses = state.expenses.filter(e => {
+        const d = new Date(e.date);
+        return d >= dayStart && d <= dayEnd;
+    });
+
+    const nameA = state.payerAName || 'A';
+    const nameB = state.payerBName || 'B';
+    const totalA = dayExpenses.filter(e => e.payer === 'A').reduce((s, e) => s + e.amount, 0);
+    const totalB = dayExpenses.filter(e => e.payer === 'B').reduce((s, e) => s + e.amount, 0);
+
+    const yyyy = viewDate.getFullYear();
+    const mm = String(viewDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(viewDate.getDate()).padStart(2, '0');
+    const dateIso = `${yyyy}-${mm}-${dd}`;
+    const dateLabel = isToday ? '今天' : `${viewDate.getMonth() + 1}/${dd}`;
+
+    const catRowsHTML = CATEGORIES.map(cat => {
+        const recA = dayExpenses.filter(e => e.category === cat.id && e.payer === 'A');
+        const recB = dayExpenses.filter(e => e.category === cat.id && e.payer === 'B');
+
+        const sumA = recA.reduce((s, e) => s + e.amount, 0);
+        const sumB = recB.reduce((s, e) => s + e.amount, 0);
+
+        const cellA = recA.length > 0
+            ? `<span class="drc-amount">$${sumA.toLocaleString()}</span>`
+            : `<span class="drc-placeholder">點擊記帳</span>`;
+        const cellB = recB.length > 0
+            ? `<span class="drc-amount">$${sumB.toLocaleString()}</span>`
+            : `<span class="drc-placeholder">點擊記帳</span>`;
+
+        return `
+            <div class="drc-row">
+                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','A')">
+                    <span class="drc-icon">${cat.icon}</span>
+                    <div class="drc-label-wrap">
+                        <span class="drc-cat-name">${cat.name}</span>
+                        ${cellA}
+                    </div>
+                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','A')">+</button>
+                </div>
+                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','B')">
+                    <span class="drc-icon">${cat.icon}</span>
+                    <div class="drc-label-wrap">
+                        <span class="drc-cat-name">${cat.name}</span>
+                        ${cellB}
+                    </div>
+                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','B')">+</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="drc-header">
+            <h3>餐費紀錄</h3>
+            <div class="drc-date-nav">
+                <button class="drc-nav-btn" onclick="goDailyPrev()">‹</button>
+                <span class="drc-date-label">${dateLabel}</span>
+                <button class="drc-nav-btn" onclick="goDailyNext()" ${isToday ? 'disabled' : ''}>›</button>
+            </div>
+        </div>
+        <div class="drc-person-totals">
+            <div class="drc-person-total">
+                <span class="drc-person-name">${nameA}</span>
+                <span class="drc-person-amount">$${totalA.toLocaleString()}</span>
+            </div>
+            <div class="drc-person-total">
+                <span class="drc-person-name">${nameB}</span>
+                <span class="drc-person-amount">$${totalB.toLocaleString()}</span>
+            </div>
+        </div>
+        <div class="drc-categories">
+            ${catRowsHTML}
+        </div>
+    `;
+}
+
+window.goDailyPrev = function () {
+    dailyViewOffset -= 1;
+    renderDailyRecordSection();
+};
+
+window.goDailyNext = function () {
+    if (dailyViewOffset < 0) {
+        dailyViewOffset += 1;
+        renderDailyRecordSection();
+    }
+};
 
 function updatePieChart(expenses, total, budget) {
     const pieCenterValue = document.getElementById('pie-center-value');
