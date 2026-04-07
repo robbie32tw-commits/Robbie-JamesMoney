@@ -80,6 +80,11 @@
                         </div>
                     </div>
 
+                    <!-- 餐費紀錄區塊 -->
+                    <div class="daily-record-card" id="daily-record-card">
+                        <!-- rendered by JS -->
+                    </div>
+
                     <!-- 圓餅圖區塊 -->
                     <div class="chart-card">
                         <h3>花費分類概況 (本週)</h3>
@@ -208,6 +213,16 @@
                             <!-- 每日結算動態生成 -->
                         </div>
                     </div>
+
+                    <!-- 每日支出趨勢圖 -->
+                    <div class="chart-card" id="stats-trend-chart">
+                        <!-- rendered by JS -->
+                    </div>
+
+                    <!-- 每月最大支出 Top 5 -->
+                    <div class="chart-card" id="stats-top5">
+                        <!-- rendered by JS -->
+                    </div>
                 </div>
             </section>
 
@@ -255,6 +270,12 @@
                     <button class="btn-primary" id="btn-save-settings">儲存設定</button>
                     <!-- 清除資料按鈕 -->
                     <button class="btn-danger" id="btn-clear-data" style="margin-top:20px;">清除所有資料</button>
+                    <!-- 版本資訊 -->
+                    <div class="version-info" style="margin-top: 32px;">
+                        <span>阿邦記帳 v1.2</span>
+                        <span class="version-sep">·</span>
+                        <span>2026.03</span>
+                    </div>
                 </div>
             </section>
         </main>

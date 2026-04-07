@@ -35,6 +35,7 @@ window.editRecordId = null;
 let currentInputAmount = '0';
 let selectedCategory = 'brunch';
 let selectedPayer = 'A';
+let dailyViewOffset = 0; // 0 = today, -1 = yesterday, ...
 
 // ====== Core Methods ======
 function init() {
@@ -506,7 +507,113 @@ function updateDashboard() {
 
     // Update Pie Chart
     updatePieChart(weeklyExpenses, weeklySpent, weeklyBudget);
+
+    // Render daily record section
+    renderDailyRecordSection();
 }
+
+function renderDailyRecordSection() {
+    const container = document.getElementById('daily-record-card');
+    if (!container) return;
+
+    const viewDate = new Date();
+    viewDate.setDate(viewDate.getDate() + dailyViewOffset);
+    viewDate.setHours(0, 0, 0, 0);
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const isToday = viewDate.getTime() === today.getTime();
+
+    const dayStart = new Date(viewDate);
+    const dayEnd = new Date(viewDate); dayEnd.setHours(23, 59, 59, 999);
+
+    const dayExpenses = state.expenses.filter(e => {
+        const d = new Date(e.date);
+        return d >= dayStart && d <= dayEnd;
+    });
+
+    const nameA = state.payerAName || 'A';
+    const nameB = state.payerBName || 'B';
+    const totalA = dayExpenses.filter(e => e.payer === 'A').reduce((s, e) => s + e.amount, 0);
+    const totalB = dayExpenses.filter(e => e.payer === 'B').reduce((s, e) => s + e.amount, 0);
+
+    const yyyy = viewDate.getFullYear();
+    const mm = String(viewDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(viewDate.getDate()).padStart(2, '0');
+    const dateIso = `${yyyy}-${mm}-${dd}`;
+    const dateLabel = isToday ? '今天' : `${viewDate.getMonth() + 1}/${dd}`;
+
+    const catRowsHTML = CATEGORIES.map(cat => {
+        const recA = dayExpenses.filter(e => e.category === cat.id && e.payer === 'A');
+        const recB = dayExpenses.filter(e => e.category === cat.id && e.payer === 'B');
+
+        const sumA = recA.reduce((s, e) => s + e.amount, 0);
+        const sumB = recB.reduce((s, e) => s + e.amount, 0);
+
+        const cellA = recA.length > 0
+            ? `<span class="drc-amount">$${sumA.toLocaleString()}</span>`
+            : `<span class="drc-placeholder">點擊記帳</span>`;
+        const cellB = recB.length > 0
+            ? `<span class="drc-amount">$${sumB.toLocaleString()}</span>`
+            : `<span class="drc-placeholder">點擊記帳</span>`;
+
+        return `
+            <div class="drc-row">
+                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','A')">
+                    <span class="drc-icon">${cat.icon}</span>
+                    <div class="drc-label-wrap">
+                        <span class="drc-cat-name">${cat.name}</span>
+                        ${cellA}
+                    </div>
+                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','A')">+</button>
+                </div>
+                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','B')">
+                    <span class="drc-icon">${cat.icon}</span>
+                    <div class="drc-label-wrap">
+                        <span class="drc-cat-name">${cat.name}</span>
+                        ${cellB}
+                    </div>
+                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','B')">+</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="drc-header">
+            <h3>餐費紀錄</h3>
+            <div class="drc-date-nav">
+                <button class="drc-nav-btn" onclick="goDailyPrev()">‹</button>
+                <span class="drc-date-label">${dateLabel}</span>
+                <button class="drc-nav-btn" onclick="goDailyNext()" ${isToday ? 'disabled' : ''}>›</button>
+            </div>
+        </div>
+        <div class="drc-person-totals">
+            <div class="drc-person-total">
+                <span class="drc-person-name">${nameA}</span>
+                <span class="drc-person-amount">$${totalA.toLocaleString()}</span>
+            </div>
+            <div class="drc-person-total">
+                <span class="drc-person-name">${nameB}</span>
+                <span class="drc-person-amount">$${totalB.toLocaleString()}</span>
+            </div>
+        </div>
+        <div class="drc-categories">
+            ${catRowsHTML}
+        </div>
+    `;
+}
+
+window.goDailyPrev = function () {
+    dailyViewOffset -= 1;
+    renderDailyRecordSection();
+};
+
+window.goDailyNext = function () {
+    if (dailyViewOffset < 0) {
+        dailyViewOffset += 1;
+        renderDailyRecordSection();
+    }
+};
 
 function updatePieChart(expenses, total, budget) {
     const pieCenterValue = document.getElementById('pie-center-value');
@@ -684,6 +791,108 @@ function renderStatsForMonth(monthStr) {
 
     updateStatsPieChart(monthExpenses, totalSpent);
     renderDailyStatsTable();
+    renderDailyTrendChart(monthExpenses, year, month);
+    renderTop5(monthExpenses);
+}
+
+function renderDailyTrendChart(monthExpenses, year, month) {
+    const container = document.getElementById('stats-trend-chart');
+    if (!container) return;
+
+    if (!year || !month) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const totalDays = getDaysInMonth(parseInt(year), parseInt(month) - 1);
+    const BAR_MAX_H = 80; // px, matches .trend-bar-wrap height
+
+    const dailySpends = [];
+    for (let d = 1; d <= totalDays; d++) {
+        const dayStart = new Date(parseInt(year), parseInt(month) - 1, d, 0, 0, 0);
+        const dayEnd   = new Date(parseInt(year), parseInt(month) - 1, d, 23, 59, 59);
+        const total = monthExpenses
+            .filter(e => { const dt = new Date(e.date); return dt >= dayStart && dt <= dayEnd; })
+            .reduce((s, e) => s + e.amount, 0);
+        dailySpends.push({ day: d, total });
+    }
+
+    const maxSpend = Math.max(...dailySpends.map(d => d.total), state.dailyBudget, 1);
+    const budgetLinePx = (state.dailyBudget / maxSpend) * BAR_MAX_H;
+
+    const today = new Date();
+    const isCurrentMonth =
+        today.getFullYear() === parseInt(year) &&
+        (today.getMonth() + 1) === parseInt(month);
+
+    const barsHTML = dailySpends.map(({ day, total }) => {
+        const barH = total > 0 ? Math.max(2, (total / maxSpend) * BAR_MAX_H) : 0;
+        const isOver = total > state.dailyBudget;
+        const isToday = isCurrentMonth && today.getDate() === day;
+        return `
+            <div class="trend-col${isToday ? ' trend-today' : ''}">
+                <div class="trend-bar-wrap">
+                    ${total > 0
+                        ? `<div class="trend-bar${isOver ? ' over-budget' : ''}" style="height:${barH}px"></div>`
+                        : `<div class="trend-bar empty"></div>`}
+                </div>
+                <div class="trend-day-label">${day}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <h3>每日支出趨勢</h3>
+        <div class="trend-legend">
+            <span class="trend-legend-dot normal"></span><span>正常</span>
+            <span class="trend-legend-dot over"></span><span>超預算</span>
+            <span class="trend-legend-line"></span><span>每日預算 NT$${state.dailyBudget.toLocaleString()}</span>
+        </div>
+        <div class="trend-chart-scroll">
+            <div class="trend-chart">
+                ${barsHTML}
+                <div class="trend-budget-line" style="bottom: calc(20px + ${budgetLinePx}px)"></div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTop5(monthExpenses) {
+    const container = document.getElementById('stats-top5');
+    if (!container) return;
+
+    if (monthExpenses.length === 0) {
+        container.innerHTML = '<h3>本月 Top 5 支出</h3><p style="text-align:center;color:var(--text-muted);font-size:13px;padding:12px 0">無資料</p>';
+        return;
+    }
+
+    const top5 = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
+    const maxAmt = top5[0].amount;
+
+    const itemsHTML = top5.map((exp, i) => {
+        const cat = CATEGORIES.find(c => c.id === exp.category) || { icon: '?', name: '未知', color: '#888' };
+        const payer = exp.payer === 'A' ? (state.payerAName || 'A') : (state.payerBName || 'B');
+        const d = new Date(exp.date);
+        const dateStr = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
+        const barPct = (exp.amount / maxAmt) * 100;
+        return `
+            <div class="top5-item">
+                <div class="top5-rank">${i + 1}</div>
+                <div class="top5-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
+                <div class="top5-info">
+                    <span class="top5-name">${cat.name}${exp.detail ? ` · ${exp.detail}` : ''}</span>
+                    <span class="top5-meta">${dateStr} · ${payer}</span>
+                    <div class="top5-bar-bg"><div class="top5-bar" style="width:${barPct}%;background:${cat.color}"></div></div>
+                </div>
+                <div class="top5-amount">NT$&nbsp;${exp.amount.toLocaleString()}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <h3>本月 Top 5 支出</h3>
+        <div class="top5-list">${itemsHTML}</div>
+    `;
 }
 
 function renderDailyStatsTable() {
