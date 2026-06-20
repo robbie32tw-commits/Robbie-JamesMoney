@@ -44,8 +44,24 @@ let mealTrackerDate = new Date(); // 餐費紀錄目前顯示的日期
 
 // ====== Core Methods ======
 function init() {
-    if (docRef) {
-        // 使用 Firebase 連線
+    if (docRef && typeof firebase !== 'undefined' && firebase.auth) {
+        // 匿名登入後再連線 Firebase（防護：規則要求 request.auth != null）
+        let cloudStarted = false;
+        const startCloud = () => {
+            if (!cloudStarted) {
+                cloudStarted = true;
+                loadStateFromFirebase();
+            }
+        };
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) startCloud();
+        });
+        firebase.auth().signInAnonymously().catch((err) => {
+            // 匿名登入若尚未啟用仍嘗試連線(規則若仍開放可運作)，啟用後即自動生效
+            console.error("阿邦匿名登入失敗，仍嘗試連線雲端:", err);
+            startCloud();
+        });
+    } else if (docRef) {
         loadStateFromFirebase();
     } else {
         loadState();
