@@ -5,16 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>記帳阿邦</title>
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffca28">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="記帳阿邦">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+
     <!-- Google Fonts: Nunito & Noto Sans TC -->
     <link
         href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Nunito:wght@600;700;800&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="./assets/abang_character.png">
-    <meta name="theme-color" content="#BCA37F">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="阿邦">
+    <link rel="stylesheet" href="style.css?v=20260301">
 </head>
 
 <body>
@@ -34,6 +37,104 @@
                 </header>
 
                 <div class="dashboard-content">
+                    <!-- 每日餐費紀錄 (合併檢視) -->
+                    <div class="chart-card meal-tracker-card">
+                        <div class="meal-tracker-header">
+                            <h3>餐費紀錄</h3>
+                            <div class="meal-date-nav">
+                                <button class="meal-nav-btn" id="meal-prev-day" onclick="changeMealDate(-1)">‹</button>
+                                <span class="meal-date-label" id="meal-date-label">今天</span>
+                                <button class="meal-nav-btn" id="meal-next-day" onclick="changeMealDate(1)">›</button>
+                            </div>
+                        </div>
+                        <div class="meal-tracker-split" id="meal-tracker">
+                            <!-- 動態生成餐費紀錄 -->
+                        </div>
+                    </div>
+
+                    <!-- 記一筆 (內嵌於首頁，位於餐費紀錄下方) -->
+                    <div class="chart-card add-form-card">
+                        <h3 id="add-form-title">記一筆</h3>
+                        <div class="add-form">
+                            <!-- 雙人切換 -->
+                            <div class="payer-toggle">
+                                <button class="payer-btn active" data-payer="A">A 付款</button>
+                                <button class="payer-btn" data-payer="B">B 付款</button>
+                            </div>
+
+                            <!-- 分類選擇 -->
+                            <div class="categories">
+                                <!-- 動態生成分類按鈕 -->
+                            </div>
+
+                            <!-- 明細輸入 -->
+                            <div class="detail-input-container">
+                                <input type="text" id="expense-detail" class="detail-input" placeholder="輸入明細 (選填)" />
+                            </div>
+
+                            <!-- 金額輸入與數字鍵盤區 -->
+                            <div class="input-area">
+                                <div class="amount-display">
+                                    <input type="datetime-local" id="expense-date" class="date-input inline-date" />
+                                    <div class="amount-text">
+                                        <span class="currency">NT$</span>
+                                        <span class="amount-value" id="input-amount">0</span>
+                                    </div>
+                                </div>
+
+                                <div class="numpad">
+                                    <button class="num-btn" data-num="1">1</button>
+                                    <button class="num-btn" data-num="2">2</button>
+                                    <button class="num-btn" data-num="3">3</button>
+                                    <button class="num-btn btn-calc" data-op="+">+</button>
+
+                                    <button class="num-btn" data-num="4">4</button>
+                                    <button class="num-btn" data-num="5">5</button>
+                                    <button class="num-btn" data-num="6">6</button>
+                                    <button class="num-btn btn-calc" data-op="-">-</button>
+
+                                    <button class="num-btn" data-num="7">7</button>
+                                    <button class="num-btn" data-num="8">8</button>
+                                    <button class="num-btn" data-num="9">9</button>
+                                    <button class="num-btn btn-action" id="btn-clear">C</button>
+
+                                    <button class="num-btn" data-num="0" style="grid-column: span 2;">0</button>
+                                    <button class="num-btn btn-calc" id="btn-eq">=</button>
+                                    <button class="num-btn btn-action btn-submit" id="btn-save">✓</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最近七日花費趨勢直條圖 -->
+                    <div class="chart-card">
+                        <h3>最近七日花費趨勢</h3>
+                        <div class="bar-chart-container" id="bar-chart-7days">
+                            <!-- 動態生成直條圖 -->
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- ========== 3. 紀錄 (Records) ========== -->
+            <section class="view" id="view-records">
+                <header class="app-header center">
+                    <h2>過往紀錄</h2>
+                </header>
+                <div class="records-content">
+                    <div class="records-list" id="records-list">
+                        <!-- 動態生成紀錄列表 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== 4. 統計 (Stats) ========== -->
+            <section class="view" id="view-stats">
+                <header class="app-header center">
+                    <h2>月度統計</h2>
+                </header>
+                <div class="stats-content">
                     <!-- 今日進度條 -->
                     <div class="budget-card">
                         <div class="budget-card-header">
@@ -80,12 +181,7 @@
                         </div>
                     </div>
 
-                    <!-- 餐費紀錄區塊 -->
-                    <div class="daily-record-card" id="daily-record-card">
-                        <!-- rendered by JS -->
-                    </div>
-
-                    <!-- 圓餅圖區塊 -->
+                    <!-- 圓餅圖區塊 (本週花費分類) -->
                     <div class="chart-card">
                         <h3>花費分類概況 (本週)</h3>
                         <div class="pie-chart-container">
@@ -99,91 +195,7 @@
                             <!-- 圖例動態生成 -->
                         </div>
                     </div>
-                </div>
 
-                <!-- 版本資訊 -->
-                <div class="version-info">
-                    <span>阿邦記帳 v1.2</span>
-                    <span class="version-sep">·</span>
-                    <span>2026.03</span>
-                </div>
-            </section>
-
-            <!-- ========== 2. 記帳 (Add Expense) ========== -->
-            <section class="view" id="view-add">
-                <header class="app-header center">
-                    <h2>記一筆</h2>
-                </header>
-
-                <div class="add-form">
-                    <!-- 雙人切換 -->
-                    <div class="payer-toggle">
-                        <button class="payer-btn active" data-payer="A">A 付款</button>
-                        <button class="payer-btn" data-payer="B">B 付款</button>
-                    </div>
-
-                    <!-- 分類選擇 -->
-                    <div class="categories">
-                        <!-- 動態生成分類按鈕 -->
-                    </div>
-
-                    <!-- 明細輸入 -->
-                    <div class="detail-input-container">
-                        <input type="text" id="expense-detail" class="detail-input" placeholder="輸入明細 (選填)" />
-                    </div>
-
-                    <!-- 金額輸入與數字鍵盤區 -->
-                    <div class="input-area">
-                        <div class="amount-display">
-                            <input type="date" id="expense-date" class="date-input inline-date" />
-                            <div class="amount-text">
-                                <span class="currency">NT$</span>
-                                <span class="amount-value" id="input-amount">0</span>
-                            </div>
-                        </div>
-
-                        <div class="numpad">
-                            <button class="num-btn" data-num="1">1</button>
-                            <button class="num-btn" data-num="2">2</button>
-                            <button class="num-btn" data-num="3">3</button>
-                            <button class="num-btn btn-calc" data-op="+">+</button>
-
-                            <button class="num-btn" data-num="4">4</button>
-                            <button class="num-btn" data-num="5">5</button>
-                            <button class="num-btn" data-num="6">6</button>
-                            <button class="num-btn btn-calc" data-op="-">-</button>
-
-                            <button class="num-btn" data-num="7">7</button>
-                            <button class="num-btn" data-num="8">8</button>
-                            <button class="num-btn" data-num="9">9</button>
-                            <button class="num-btn btn-action" id="btn-clear">C</button>
-
-                            <button class="num-btn" data-num="0" style="grid-column: span 2;">0</button>
-                            <button class="num-btn btn-calc" id="btn-eq">=</button>
-                            <button class="num-btn btn-action btn-submit" id="btn-save">✓</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ========== 3. 紀錄 (Records) ========== -->
-            <section class="view" id="view-records">
-                <header class="app-header center">
-                    <h2>過往紀錄</h2>
-                </header>
-                <div class="records-content">
-                    <div class="records-list" id="records-list">
-                        <!-- 動態生成紀錄列表 -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- ========== 4. 統計 (Stats) ========== -->
-            <section class="view" id="view-stats">
-                <header class="app-header center">
-                    <h2>月度統計</h2>
-                </header>
-                <div class="stats-content">
                     <div class="stats-card">
                         <select id="stats-month-selector" class="stats-select">
                             <!-- 動態生成月份選項 -->
@@ -206,22 +218,32 @@
                         <div class="legend" id="stats-legend">
                             <!-- 圖例動態生成 -->
                         </div>
-                        <div id="stats-settlement-card" class="stats-settlement">
-                            <!-- 雙人結算動態生成 -->
+                    </div>
+
+                    <!-- 每日花費趨勢直條圖 (整月) -->
+                    <div class="chart-card">
+                        <h3>每日花費趨勢</h3>
+                        <div class="stats-bar-chart-wrapper">
+                            <div class="stats-bar-chart" id="stats-monthly-bar-chart">
+                                <!-- 動態生成 -->
+                            </div>
                         </div>
+                        <div class="stats-bar-summary" id="stats-bar-summary">
+                            <!-- 動態生成摘要 -->
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>最大筆支出 Top 5</h3>
+                        <div class="stats-top-expenses" id="stats-top-expenses">
+                            <!-- 動態生成 Top 5 支出 -->
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
                         <div id="stats-daily-table" class="daily-table">
                             <!-- 每日結算動態生成 -->
                         </div>
-                    </div>
-
-                    <!-- 每日支出趨勢圖 -->
-                    <div class="chart-card" id="stats-trend-chart">
-                        <!-- rendered by JS -->
-                    </div>
-
-                    <!-- 每月最大支出 Top 5 -->
-                    <div class="chart-card" id="stats-top5">
-                        <!-- rendered by JS -->
                     </div>
                 </div>
             </section>
@@ -270,12 +292,6 @@
                     <button class="btn-primary" id="btn-save-settings">儲存設定</button>
                     <!-- 清除資料按鈕 -->
                     <button class="btn-danger" id="btn-clear-data" style="margin-top:20px;">清除所有資料</button>
-                    <!-- 版本資訊 -->
-                    <div class="version-info" style="margin-top: 32px;">
-                        <span>阿邦記帳 v1.2</span>
-                        <span class="version-sep">·</span>
-                        <span>2026.03</span>
-                    </div>
                 </div>
             </section>
         </main>
@@ -285,11 +301,6 @@
             <button class="nav-item active" data-target="dashboard">
                 <div class="nav-icon-wrapper">
                     <span class="label">首頁</span>
-                </div>
-            </button>
-            <button class="nav-item add-btn" data-target="add">
-                <div class="nav-icon-wrapper">
-                    <span class="label">記帳</span>
                 </div>
             </button>
             <button class="nav-item" data-target="records">
@@ -310,9 +321,25 @@
         </nav>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="app.js"></script>
+    <!-- Firebase  SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="app.js?v=20260301-3"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </body>
 
 </html>

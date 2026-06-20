@@ -1,23 +1,28 @@
 // ====== Firebase Setup ======
 const firebaseConfig = {
-    apiKey: "AIzaSyCeBajZC6ixqh0cYCeRCpmgD8RcFsqAhbU",
-    authDomain: "robbie-james-money.firebaseapp.com",
-    projectId: "robbie-james-money",
-    storageBucket: "robbie-james-money.firebasestorage.app",
-    messagingSenderId: "1017181391269",
-    appId: "1:1017181391269:web:3a0d962daa314b8555c04c"
+    apiKey: "AIzaSyBC-sb_fWclij6zjpLkrjrWxBOyi8YMY4s",
+    authDomain: "rjmoney-75aa1.firebaseapp.com",
+    projectId: "rjmoney-75aa1",
+    storageBucket: "rjmoney-75aa1.firebasestorage.app",
+    messagingSenderId: "486707027041",
+    appId: "1:486707027041:web:ccf1c3875487e1f2bede20"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
-const SHARED_DOC = 'shared';
-let unsubscribeSync = null;
+// 初始化 Firebase
+if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+// 連線到 Firestore 資料庫
+const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
+const docRef = db ? db.collection("abang_data").doc("sharedAccount") : null;
+const expensesRef = docRef ? docRef.collection("expenses") : null;
 
 // ====== Configuration & State ======
 const CATEGORIES = [
-    { id: 'brunch', name: '早午餐', icon: '🍳', color: '#E9C46A' },
+    { id: 'breakfast', name: '早餐', icon: '🍳', color: '#E9C46A' },
+    { id: 'lunch', name: '午餐', icon: '🍱', color: '#DDA15E' },
     { id: 'dinner', name: '晚餐宵夜', icon: '🍜', color: '#F4A261' },
-    { id: 'drinks', name: '飲料甜點', icon: '🧋', color: '#2A9D8F' },
+    { id: 'drinks', name: '飲料/點心', icon: '🧋', color: '#2A9D8F' },
     { id: 'alcohol', name: '喝酒', icon: '🍻', color: '#E76F51' },
     { id: 'others', name: '其他', icon: '✨', color: '#9D8189' }
 ];
@@ -33,61 +38,140 @@ let state = {
 window.editRecordId = null;
 
 let currentInputAmount = '0';
-let selectedCategory = 'brunch';
+let selectedCategory = 'breakfast';
 let selectedPayer = 'A';
-let dailyViewOffset = 0; // 0 = today, -1 = yesterday, ...
+let mealTrackerDate = new Date(); // 餐費紀錄目前顯示的日期
 
 // ====== Core Methods ======
 function init() {
-    // Load local state immediately for fast first render
-    const saved = localStorage.getItem('abangState');
-    if (saved) state = JSON.parse(saved);
-
+    if (docRef) {
+        // 使用 Firebase 連線
+        loadStateFromFirebase();
+    } else {
+        loadState();
+    }
     document.documentElement.setAttribute('data-theme', state.theme || 'light');
     setupNavigation();
     renderCategories();
     setupNumpad();
     setupSettings();
     updateDashboard();
-    startRealtimeSync();
+}
+
+function loadStateFromFirebase() {
+    // 1. 監聽設定與遷移舊資料
+    docRef.onSnapshot((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            // 更新設定
+            state.dailyBudget = data.dailyBudget || 500;
+            state.payerAName = data.payerAName || 'A';
+            state.payerBName = data.payerBName || 'B';
+            state.theme = data.theme || 'light';
+
+            // 資料更新後即時刷新畫面
+            document.documentElement.setAttribute('data-theme', state.theme || 'light');
+            updateDashboard();
+            renderCategories(); // 更新 A/B 付款按鈕名稱
+
+            // 自動遷移舊資料邏輯
+            if (data.expenses && Array.isArray(data.expenses) && data.expenses.length > 0) {
+                console.log("阿邦發現舊格式資料，正在幫你搬家到安全的地方... 🐾");
+                data.expenses.forEach(exp => {
+                    const id = exp.id ? String(exp.id) : Date.now().toString() + Math.random().toString(36).substr(2, 5);
+                    expensesRef.doc(id).set(exp).catch(e => console.error("遷移失敗:", e));
+                });
+                // 遷移完成後移除舊陣列，避免重複遷移
+                docRef.update({
+                    expenses: firebase.firestore.FieldValue.delete()
+                }).then(() => console.log("搬家完成！以後記帳更安全囉 🐰✨"));
+            }
+        } else {
+            // 第一天上線，初始化雲端資料
+            docRef.set({
+                dailyBudget: state.dailyBudget,
+                payerAName: state.payerAName,
+                payerBName: state.payerBName,
+                theme: state.theme
+            });
+        }
+    });
+
+    // 2. 監聽支出紀錄子集合
+    if (expensesRef) {
+        expensesRef.orderBy('date', 'desc').onSnapshot((snapshot) => {
+            console.log("阿邦收到雲端資料更新囉！🐾");
+            const newExpenses = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // 舊資料遷移：早午餐 (brunch) 歸到午餐 (lunch)
+                if (data.category === 'brunch') {
+                    data.category = 'lunch';
+                    expensesRef.doc(doc.id).update({ category: 'lunch' })
+                        .catch(e => console.error('分類遷移失敗:', e));
+                }
+                newExpenses.push({ ...data, id: doc.id });
+            });
+            
+            // 按照日期排序
+            state.expenses = newExpenses;
+            
+            updateDashboard();
+            refreshActiveView();
+        }, (error) => {
+            console.error("監聽支出失敗 (可能是權限問題或離線):", error);
+            // 監聽失敗時，確保至少有一份本地資料可用
+            if (state.expenses.length === 0) {
+                loadState();
+                updateDashboard();
+            }
+        });
+    }
+}
+
+function refreshActiveView() {
+    const activeViewEl = document.querySelector('.view.active');
+    if (!activeViewEl) return;
+    
+    const currentActiveView = activeViewEl.id;
+    if (currentActiveView === 'view-records') renderRecords();
+    if (currentActiveView === 'view-stats') {
+        const selector = document.getElementById('stats-month-selector');
+        if (selector && selector.value) {
+            try { renderStatsForMonth(selector.value); } catch (e) { }
+        } else {
+            initStatsView();
+        }
+    }
+}
+
+function loadState() {
+    const saved = localStorage.getItem('abangState');
+    if (saved) {
+        state = JSON.parse(saved);
+    }
 }
 
 function saveState() {
+    // 存到 Firebase 雲端 (只存設定，支出紀錄已經獨立儲存)
+    if (docRef) {
+        docRef.update({
+            dailyBudget: state.dailyBudget,
+            payerAName: state.payerAName,
+            payerBName: state.payerBName,
+            theme: state.theme
+        }).catch(err => {
+            console.error("Firebase 設定寫入失敗: ", err);
+        });
+    }
+    // 本機也存一份當備份 (包含目前的 expenses 狀態)
     localStorage.setItem('abangState', JSON.stringify(state));
-    db.collection('rooms').doc(SHARED_DOC).set(state).catch(err => {
-        console.error('Firestore sync failed:', err);
-    });
-}
-
-// ====== Firebase Sync ======
-function startRealtimeSync() {
-    if (unsubscribeSync) unsubscribeSync();
-    unsubscribeSync = db.collection('rooms').doc(SHARED_DOC).onSnapshot((doc) => {
-        if (doc.exists) {
-            state = doc.data();
-            localStorage.setItem('abangState', JSON.stringify(state));
-            document.documentElement.setAttribute('data-theme', state.theme || 'light');
-            renderCurrentView();
-        }
-    }, (err) => {
-        console.error('Sync listener error:', err);
-    });
-}
-
-function renderCurrentView() {
-    const activeView = document.querySelector('.view.active');
-    if (!activeView) return;
-    const id = activeView.id;
-    if (id === 'view-dashboard') updateDashboard();
-    else if (id === 'view-records') renderRecords();
-    else if (id === 'view-stats') initStatsView();
 }
 
 // ====== View Navigation ======
 function setupNavigation() {
     const navItems = document.querySelectorAll('.bottom-nav .nav-item');
     const views = document.querySelectorAll('.view');
-    const quote = document.getElementById('abang-quote');
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -105,10 +189,7 @@ function setupNavigation() {
             // Refresh Dashboard on view
             if (target === 'dashboard') {
                 updateDashboard();
-                quote.innerText = "阿邦幫你看緊荷包 🐾";
-            } else if (target === 'add') {
-                quote.innerText = "這筆記在哪裡比較好呢？ ✏️";
-                resetAddForm();
+                updateAbangGreeting(); // 換成動態問候
             } else if (target === 'records') {
                 renderRecords();
             } else if (target === 'stats') {
@@ -196,62 +277,16 @@ function setupNumpad() {
         });
     });
 
-    const safeEval = (expr) => {
-        // Tokenize and evaluate simple math expressions (+, -, *, /) safely
-        const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
-        if (!tokens) return NaN;
-        // Only allow safe characters
-        if (!/^[\d+\-*/(). ]+$/.test(expr)) return NaN;
-
-        // Simple recursive descent parser for +, -, *, /
-        let pos = 0;
-        const parseExpr = () => {
-            let result = parseTerm();
-            while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
-                const op = tokens[pos++];
-                const right = parseTerm();
-                result = op === '+' ? result + right : result - right;
-            }
-            return result;
-        };
-        const parseTerm = () => {
-            let result = parseFactor();
-            while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
-                const op = tokens[pos++];
-                const right = parseFactor();
-                if (op === '/' && right === 0) return NaN;
-                result = op === '*' ? result * right : result / right;
-            }
-            return result;
-        };
-        const parseFactor = () => {
-            if (tokens[pos] === '(') {
-                pos++; // skip '('
-                const result = parseExpr();
-                pos++; // skip ')'
-                return result;
-            }
-            if (tokens[pos] === '-') {
-                pos++;
-                return -parseFactor();
-            }
-            return parseFloat(tokens[pos++]);
-        };
-
-        try {
-            const result = parseExpr();
-            return pos === tokens.length ? result : NaN;
-        } catch (e) {
-            return NaN;
-        }
-    };
-
     const evaluateExpression = () => {
-        const sanitized = currentInputAmount.replace(/[^-()\d/*+.]/g, '');
-        const res = safeEval(sanitized);
-        if (!isNaN(res) && isFinite(res)) {
-            currentInputAmount = Math.max(0, Math.floor(res)).toString();
-            inputDisplay.innerText = formatDisplay(currentInputAmount);
+        try {
+            const sanitized = currentInputAmount.replace(/[^-()\d/*+.]/g, '');
+            const res = new Function('return ' + sanitized)();
+            if (!isNaN(res) && isFinite(res)) {
+                currentInputAmount = Math.max(0, Math.floor(res)).toString();
+                inputDisplay.innerText = formatDisplay(currentInputAmount);
+            }
+        } catch (err) {
+            // override or ignore invalid expression
         }
     };
 
@@ -265,63 +300,73 @@ function setupNumpad() {
     document.getElementById('btn-save').addEventListener('click', () => {
         evaluateExpression();
         const amount = parseInt(currentInputAmount);
+        console.log("嘗試儲存支出:", amount, selectedCategory, selectedPayer);
+
         if (amount > 0) {
             const dateInput = document.getElementById('expense-date').value;
             const detailInput = document.getElementById('expense-detail').value.trim();
 
-            let expenseDate = new Date().toISOString();
-            if (dateInput) {
-                const [y, m, d] = dateInput.split('-');
-                // When editing, preserve original time if date hasn't changed
-                if (window.editRecordId) {
-                    const origRecord = state.expenses.find(e => e.id === window.editRecordId);
-                    if (origRecord) {
-                        const origDate = new Date(origRecord.date);
-                        const origDateStr = `${origDate.getFullYear()}-${String(origDate.getMonth() + 1).padStart(2, '0')}-${String(origDate.getDate()).padStart(2, '0')}`;
-                        if (origDateStr === dateInput) {
-                            expenseDate = origRecord.date;
-                        } else {
-                            const now = new Date();
-                            expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
-                        }
-                    }
-                } else {
-                    // New record: use current time-of-day on the selected date
-                    const now = new Date();
-                    expenseDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), now.getHours(), now.getMinutes(), now.getSeconds()).toISOString();
-                }
-            }
-
-            if (window.editRecordId) {
-                const index = state.expenses.findIndex(e => e.id === window.editRecordId);
-                if (index !== -1) {
-                    state.expenses[index] = {
-                        ...state.expenses[index],
-                        amount: amount,
-                        category: selectedCategory,
-                        payer: selectedPayer,
-                        date: expenseDate,
-                        detail: detailInput
-                    };
-                }
-                window.editRecordId = null;
-                document.querySelector('#view-add h2').innerText = '記一筆';
+            let expenseDate;
+            const userChangedDate = dateInput && dateInput !== window.formOpenDateValue;
+            if (window.editRecordId || userChangedDate) {
+                const [datePart, timePart] = dateInput.split('T');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
+                expenseDate = new Date(year, month - 1, day, hours, minutes).toISOString();
             } else {
-                state.expenses.push({
-                    id: Date.now(),
-                    amount: amount,
-                    category: selectedCategory,
-                    payer: selectedPayer,
-                    date: expenseDate,
-                    detail: detailInput
-                });
+                expenseDate = new Date().toISOString();
             }
 
-            saveState();
+            const expenseData = {
+                amount: amount,
+                category: selectedCategory,
+                payer: selectedPayer,
+                date: expenseDate,
+                detail: detailInput
+            };
+
+            // 樂觀更新 local state，讓 UI 立即有反應
+            const tempId = window.editRecordId || Date.now().toString();
+            if (!window.editRecordId) {
+                const newRecord = { ...expenseData, id: tempId };
+                state.expenses.unshift(newRecord);
+            } else {
+                const index = state.expenses.findIndex(e => e.id === window.editRecordId);
+                if (index !== -1) state.expenses[index] = { ...expenseData, id: window.editRecordId };
+            }
+            updateDashboard();
+            saveState(); // 存到 localStorage 當備份
+
+            if (expensesRef) {
+                console.log("正在同步到 Firebase...");
+                if (window.editRecordId) {
+                    expensesRef.doc(String(window.editRecordId)).update(expenseData)
+                        .then(() => console.log("Firebase 更新成功 ✨"))
+                        .catch(err => console.error("Firebase 更新失敗:", err));
+                    window.editRecordId = null;
+                    document.getElementById('add-form-title').innerText = '記一筆';
+                } else {
+                    expensesRef.add(expenseData)
+                        .then((doc) => console.log("Firebase 新增成功，ID:", doc.id))
+                        .catch(err => {
+                            console.error("Firebase 新增失敗:", err);
+                            alert("雲端同步失敗，但已存在本地囉 🐾");
+                        });
+                }
+            }
 
             // Switch back to dashboard
+            const saveQuotes = [
+                '記好囉！阿邦覺得你很棒 🎉',
+                '記帳完成！阿邦幫你守好荷包 💪🐰',
+                '存檔成功！每一筆都是理財的一步 ✨🐾',
+                '記下來啦！阿邦替你鼓掌 👏🐰',
+                '完美！繼續保持記帳的好習慣 🌟🐾'
+            ];
+            window.justSaved = true;
             document.querySelector('[data-target="dashboard"]').click();
-            document.getElementById('abang-quote').innerText = "記好囉！阿邦覺得你很棒 🎉";
+            resetAddForm(); // 表單常駐首頁，存檔後清空供下一筆使用
+            document.getElementById('abang-quote').innerText = saveQuotes[Math.floor(Math.random() * saveQuotes.length)];
         }
     });
 }
@@ -332,13 +377,11 @@ window.editRecord = function (id) {
 
     window.editRecordId = id;
 
-    // Switch to ADD view
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-add').classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('.nav-item[data-target="add"]').classList.add('active');
+    // Go to dashboard where the form now lives, then scroll to it
+    document.querySelector('[data-target="dashboard"]').click();
+    document.querySelector('.add-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    document.querySelector('#view-add h2').innerText = '編輯紀錄';
+    document.getElementById('add-form-title').innerText = '編輯紀錄';
 
     // Populate values
     currentInputAmount = record.amount.toString();
@@ -351,7 +394,9 @@ window.editRecord = function (id) {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    document.getElementById('expense-date').value = `${yyyy}-${mm}-${dd}`;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    document.getElementById('expense-date').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 
     selectedCategory = record.category;
     document.querySelectorAll('.cat-btn, .category-item').forEach(btn => {
@@ -365,41 +410,106 @@ window.editRecord = function (id) {
     });
 
     selectedPayer = record.payer;
-    document.querySelectorAll('.payer-btn').forEach(btn => {
-        if (btn.getAttribute('data-payer') === selectedPayer) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
+    const payerContainer = document.querySelector('.payer-toggle');
+    if (payerContainer) {
+        payerContainer.innerHTML = `
+            <button class="payer-btn ${selectedPayer === 'A' ? 'active' : ''}" data-payer="A">${state.payerAName || 'A'} 付款</button>
+            <button class="payer-btn ${selectedPayer === 'B' ? 'active' : ''}" data-payer="B">${state.payerBName || 'B'} 付款</button>
+        `;
+        document.querySelectorAll('.payer-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.payer-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                selectedPayer = e.target.getAttribute('data-payer');
+            });
+        });
+    }
 };
 
 // Ensure delete property is accessible globally
 window.deleteRecord = function (id) {
-    state.expenses = state.expenses.filter(e => e.id !== id);
-    saveState();
-    renderRecords();
-    updateDashboard();
-
-    // If we are currently in stats view, refresh it too
-    const selectedMonth = document.getElementById('stats-month-selector').value;
-    if (selectedMonth) renderStatsForMonth(selectedMonth);
+    if (confirm('確定要刪除這筆紀錄嗎？')) {
+        if (expensesRef) {
+            expensesRef.doc(String(id)).delete().catch(err => console.error("刪除失敗:", err));
+        } else {
+            state.expenses = state.expenses.filter(e => e.id !== id);
+            saveState();
+            renderRecords();
+            updateDashboard();
+        }
+    }
 };
+
+// ====== Quick Add from Meal Tracker ======
+window.quickAddMeal = function(category, payer) {
+    // The form lives on the dashboard — just reset and scroll to it
+    resetAddForm();
+    document.querySelector('.add-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Pre-fill the date from the meal tracker's selected date
+    const d = mealTrackerDate;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const dateValue = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    document.getElementById('expense-date').value = dateValue;
+    window.formOpenDateValue = dateValue;
+
+    // Pre-select payer (default to last used)
+    if (payer) selectedPayer = payer;
+    document.querySelectorAll('.payer-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-payer') === selectedPayer);
+    });
+
+    // Pre-select category
+    selectedCategory = category;
+    document.querySelectorAll('.cat-btn, .category-item').forEach(btn => {
+        const catId = btn.getAttribute('data-cat') || btn.getAttribute('data-id');
+        btn.classList.toggle('selected', catId === category);
+        btn.classList.toggle('active', catId === category);
+    });
+};
+
+// ====== Meal Tracker Date Navigation ======
+window.changeMealDate = function(delta) {
+    mealTrackerDate.setDate(mealTrackerDate.getDate() + delta);
+
+    // Don't allow going into the future
+    const today = new Date();
+    if (mealTrackerDate > today) {
+        mealTrackerDate = new Date(today);
+    }
+
+    updateMealTrackerFromDate();
+};
+
+function updateMealTrackerFromDate() {
+    const target = mealTrackerDate;
+    const dateExpenses = state.expenses.filter(e => isSameDay(new Date(e.date), target));
+    renderMealTracker(dateExpenses);
+}
 
 function resetAddForm() {
     window.editRecordId = null;
-    document.querySelector('#view-add h2').innerText = '記一筆';
+    document.getElementById('add-form-title').innerText = '記一筆';
 
     currentInputAmount = '0';
     document.getElementById('input-amount').innerText = '0';
     document.getElementById('expense-detail').value = '';
 
-    // Set default date to today
+    // Set default date and time to now
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
-    document.getElementById('expense-date').value = `${yyyy}-${mm}-${dd}`;
+    const hh = String(today.getHours()).padStart(2, '0');
+    const min = String(today.getMinutes()).padStart(2, '0');
+    const defaultDateValue = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+    document.getElementById('expense-date').value = defaultDateValue;
+    window.formOpenDateValue = defaultDateValue;
 }
 
 // ====== Dashboard Logic ======
@@ -410,13 +520,11 @@ function isSameDay(d1, d2) {
 }
 
 function isSameWeek(d1, d2) {
-    // Get the Sunday of each date's week
-    const getWeekStart = (d) => {
-        const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        day.setDate(day.getDate() - day.getDay());
-        return day.getTime();
-    };
-    return getWeekStart(d1) === getWeekStart(d2);
+    const oneJan = new Date(d1.getFullYear(), 0, 1);
+    const w1 = Math.ceil((((d1.getTime() - oneJan.getTime()) / 86400000) + oneJan.getDay() + 1) / 7);
+    const oneJan2 = new Date(d2.getFullYear(), 0, 1);
+    const w2 = Math.ceil((((d2.getTime() - oneJan2.getTime()) / 86400000) + oneJan2.getDay() + 1) / 7);
+    return w1 === w2 && d1.getFullYear() === d2.getFullYear();
 }
 
 function isSameMonth(d1, d2) {
@@ -426,6 +534,86 @@ function isSameMonth(d1, d2) {
 
 function getDaysInMonth(year, month) {
     return new Date(year, month + 1, 0).getDate();
+}
+
+function updateAbangGreeting(todayOverBudget) {
+    const hour = new Date().getHours();
+    const titleEl = document.getElementById('greeting-title');
+    const quoteEl = document.getElementById('abang-quote');
+
+    // 不要覆蓋掉剛記完帳的儲存成功提示
+    if (window.justSaved) {
+        window.justSaved = false;
+        return;
+    }
+
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    // 超支時，阿邦的話會改變
+    if (todayOverBudget) {
+        const overQuotes = [
+            '今天花超啦！阿邦的荷包在淌血 🩸😱',
+            '超支警報！錢包君正在哭泣 💸🩸',
+            '花太多了啦！阿邦快暈倒了 🩸🐰💫',
+            '預算爆炸！阿邦需要急救 🚨🩸',
+            '荷包大出血！明天省著點吧 🩸😿',
+            '超出預算了，不過沒關係，明天重新來過 💪🐰',
+            '今天多花了點…阿邦不怪你，明天一起努力 🥲🐾',
+            '超支了！要不要把非必要的消費備個備注？🤔🐰',
+            '偶爾多花一點沒關係，阿邦陪你一起調整 💙🐾',
+            '今天預算超跑，深呼吸，明天的你會更厲害的 🌟🐰'
+        ];
+        titleEl.innerText = '超支了！';
+        quoteEl.innerText = pick(overQuotes);
+        return;
+    }
+
+    if (hour >= 5 && hour < 11) {
+        titleEl.innerText = '早安！';
+        quoteEl.innerText = pick([
+            '新的一天，阿邦陪你精打細算 ☀️🐰',
+            '早安！記得把今天第一筆花費記好 🌅🐾',
+            '早餐吃了嗎？把錢記下來，美好的一天開始！🥐🐰',
+            '一早就看到你，阿邦超開心的 ☀️🐾',
+            '今天也要精打細算，阿邦幫你一起盯 🌤️🐰'
+        ]);
+    } else if (hour >= 11 && hour < 14) {
+        titleEl.innerText = '午安！';
+        quoteEl.innerText = pick([
+            '吃飽了嗎？記得把午餐錢記下來喔 🍱🐾',
+            '午餐時間到！今天吃什麼呢？🍜🐰',
+            '好好吃頓飯，上午辛苦了 🍱🐾',
+            '中午好！花錢要記帳，吃飯要開心 🥢✨',
+            '午休前把今天的花費記好，再去休息喔 😴🐰'
+        ]);
+    } else if (hour >= 14 && hour < 18) {
+        titleEl.innerText = '下午好！';
+        quoteEl.innerText = pick([
+            '下午茶時間到了嗎？阿邦幫你看緊荷包 ☕️🐰',
+            '下午好！撐過午後睡意，獎勵自己一下 ☕️🐾',
+            '下午三點了，買杯飲料也要記帳喔 🧋🐰',
+            '快下班啦！今天的帳都記好了嗎？💼🐾',
+            '剩最後幾小時，今天的預算還剩多少？📊🐰'
+        ]);
+    } else if (hour >= 18 && hour < 22) {
+        titleEl.innerText = '晚安！';
+        quoteEl.innerText = pick([
+            '辛苦了一天，今晚吃點好吃的吧 🌙🐾',
+            '下班了！今天的花費有確實記帳嗎？🌙🐰',
+            '晚餐吃什麼？阿邦建議記帳後再好好吃 🍜🐾',
+            '一天快過去了，把花費整理好再放鬆 🌙✨',
+            '辛苦了！犒賞自己也別忘了記帳 🌙🐰'
+        ]);
+    } else {
+        titleEl.innerText = '夜深了！';
+        quoteEl.innerText = pick([
+            '還沒睡嗎？熬夜容易亂花錢喔 💤🐰',
+            '這麼晚記帳很棒，不過也要早點睡喔 🌙💤',
+            '深夜記帳勇士！阿邦都在陪著你 🌙🐰',
+            '熬夜傷身，也容易手滑亂刷卡喔 💸💤',
+            '帳記完了就快去睡覺吧！阿邦看著你 🌙🐾'
+        ]);
+    }
 }
 
 function updateDashboard() {
@@ -467,13 +655,25 @@ function updateDashboard() {
     const weeklyRemaining = weeklyBudget - weeklySpent;
     const monthlyRemaining = monthlyBudget - monthlySpent;
 
+    const todayOver = todayRemaining < 0;
+    const weeklyOver = weeklyRemaining < 0;
+    const monthlyOver = monthlyRemaining < 0;
+
+    // Update Abang greeting (pass over-budget state)
+    updateAbangGreeting(todayOver);
+
     // Update Today Card
     document.getElementById('today-spent').innerText = todaySpent.toLocaleString();
     document.getElementById('today-budget').innerText = state.dailyBudget.toLocaleString();
     const remainEl = document.getElementById('today-remaining');
-    remainEl.innerText = `NT$ ${Math.max(todayRemaining, 0).toLocaleString()}`;
-    if (todayRemaining < 0) remainEl.classList.add('danger');
-    else remainEl.classList.remove('danger');
+    if (todayOver) {
+        remainEl.innerHTML = `🩸 -NT$ ${Math.abs(todayRemaining).toLocaleString()}`;
+        remainEl.classList.add('blood-red');
+        remainEl.classList.remove('danger');
+    } else {
+        remainEl.innerHTML = `NT$ ${todayRemaining.toLocaleString()}`;
+        remainEl.classList.remove('blood-red', 'danger');
+    }
 
     const todayPct = Math.min((todaySpent / state.dailyBudget) * 100, 100);
     const todayBar = document.getElementById('today-progress');
@@ -483,9 +683,14 @@ function updateDashboard() {
 
     // Update Weekly Card
     const weekRemainEl = document.getElementById('weekly-remaining');
-    weekRemainEl.innerText = `NT$ ${Math.max(weeklyRemaining, 0).toLocaleString()}`;
-    if (weeklyRemaining < 0) weekRemainEl.classList.add('danger');
-    else weekRemainEl.classList.remove('danger');
+    if (weeklyOver) {
+        weekRemainEl.innerHTML = `🩸 -NT$ ${Math.abs(weeklyRemaining).toLocaleString()}`;
+        weekRemainEl.classList.add('blood-red');
+        weekRemainEl.classList.remove('danger');
+    } else {
+        weekRemainEl.innerHTML = `NT$ ${weeklyRemaining.toLocaleString()}`;
+        weekRemainEl.classList.remove('blood-red', 'danger');
+    }
 
     const weekPct = Math.min((weeklySpent / weeklyBudget) * 100, 100);
     const weekBar = document.getElementById('weekly-progress');
@@ -495,9 +700,14 @@ function updateDashboard() {
 
     // Update Monthly Card
     const monthRemainEl = document.getElementById('monthly-remaining');
-    monthRemainEl.innerText = `NT$ ${Math.max(monthlyRemaining, 0).toLocaleString()}`;
-    if (monthlyRemaining < 0) monthRemainEl.classList.add('danger');
-    else monthRemainEl.classList.remove('danger');
+    if (monthlyOver) {
+        monthRemainEl.innerHTML = `🩸 -NT$ ${Math.abs(monthlyRemaining).toLocaleString()}`;
+        monthRemainEl.classList.add('blood-red');
+        monthRemainEl.classList.remove('danger');
+    } else {
+        monthRemainEl.innerHTML = `NT$ ${monthlyRemaining.toLocaleString()}`;
+        monthRemainEl.classList.remove('blood-red', 'danger');
+    }
 
     const monthPct = Math.min((monthlySpent / monthlyBudget) * 100, 100);
     const monthBar = document.getElementById('monthly-progress');
@@ -508,112 +718,150 @@ function updateDashboard() {
     // Update Pie Chart
     updatePieChart(weeklyExpenses, weeklySpent, weeklyBudget);
 
-    // Render daily record section
-    renderDailyRecordSection();
+    // Update 7-Day Bar Chart
+    update7DayBarChart();
+
+    // Update Meal Tracker (use mealTrackerDate, not necessarily today)
+    updateMealTrackerFromDate();
 }
 
-function renderDailyRecordSection() {
-    const container = document.getElementById('daily-record-card');
+function update7DayBarChart() {
+    const container = document.getElementById('bar-chart-7days');
     if (!container) return;
 
-    const viewDate = new Date();
-    viewDate.setDate(viewDate.getDate() + dailyViewOffset);
-    viewDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    const days = [];
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const isToday = viewDate.getTime() === today.getTime();
+    // Build 7-day data (from 6 days ago to today)
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dayExpenses = state.expenses.filter(e => isSameDay(new Date(e.date), d));
+        const total = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
+        days.push({
+            date: d,
+            dayName: dayNames[d.getDay()],
+            dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
+            total: total,
+            isToday: i === 0
+        });
+    }
 
-    const dayStart = new Date(viewDate);
-    const dayEnd = new Date(viewDate); dayEnd.setHours(23, 59, 59, 999);
+    const maxAmount = Math.max(...days.map(d => d.total), state.dailyBudget, 1);
+    const maxBarHeight = 120; // px
+    const budgetLineBottom = (state.dailyBudget / maxAmount) * maxBarHeight;
 
-    const dayExpenses = state.expenses.filter(e => {
-        const d = new Date(e.date);
-        return d >= dayStart && d <= dayEnd;
-    });
+    let html = '';
+    days.forEach((day, idx) => {
+        const barHeight = (day.total / maxAmount) * maxBarHeight;
+        const isOverBudget = day.total > state.dailyBudget;
+        const barClass = day.isToday ? 'today' : (isOverBudget ? 'over-budget' : '');
+        const amountStr = day.total > 0 ? `$${day.total.toLocaleString()}` : '';
 
-    const nameA = state.payerAName || 'A';
-    const nameB = state.payerBName || 'B';
-    const totalA = dayExpenses.filter(e => e.payer === 'A').reduce((s, e) => s + e.amount, 0);
-    const totalB = dayExpenses.filter(e => e.payer === 'B').reduce((s, e) => s + e.amount, 0);
-
-    const yyyy = viewDate.getFullYear();
-    const mm = String(viewDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(viewDate.getDate()).padStart(2, '0');
-    const dateIso = `${yyyy}-${mm}-${dd}`;
-    const dateLabel = isToday ? '今天' : `${viewDate.getMonth() + 1}/${dd}`;
-
-    const catRowsHTML = CATEGORIES.map(cat => {
-        const recA = dayExpenses.filter(e => e.category === cat.id && e.payer === 'A');
-        const recB = dayExpenses.filter(e => e.category === cat.id && e.payer === 'B');
-
-        const sumA = recA.reduce((s, e) => s + e.amount, 0);
-        const sumB = recB.reduce((s, e) => s + e.amount, 0);
-
-        const cellA = recA.length > 0
-            ? `<span class="drc-amount">$${sumA.toLocaleString()}</span>`
-            : `<span class="drc-placeholder">點擊記帳</span>`;
-        const cellB = recB.length > 0
-            ? `<span class="drc-amount">$${sumB.toLocaleString()}</span>`
-            : `<span class="drc-placeholder">點擊記帳</span>`;
-
-        return `
-            <div class="drc-row">
-                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','A')">
-                    <span class="drc-icon">${cat.icon}</span>
-                    <div class="drc-label-wrap">
-                        <span class="drc-cat-name">${cat.name}</span>
-                        ${cellA}
-                    </div>
-                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','A')">+</button>
+        html += `
+            <div class="bar-column">
+                <span class="bar-amount">${amountStr}</span>
+                <div class="bar-wrapper">
+                    <div class="bar-fill ${barClass}" style="height: ${Math.max(barHeight, day.total > 0 ? 4 : 0)}px; animation: barGrow 0.6s ease ${idx * 0.08}s both;"></div>
+                    ${idx === 6 ? `<div class="bar-budget-line" style="bottom: ${budgetLineBottom}px;"></div>` : ''}
                 </div>
-                <div class="drc-cell" onclick="window.quickAddMeal('${dateIso}','${cat.id}','B')">
-                    <span class="drc-icon">${cat.icon}</span>
-                    <div class="drc-label-wrap">
-                        <span class="drc-cat-name">${cat.name}</span>
-                        ${cellB}
-                    </div>
-                    <button class="drc-add-btn" onclick="event.stopPropagation(); window.quickAddMeal('${dateIso}','${cat.id}','B')">+</button>
-                </div>
+                <span class="bar-day ${day.isToday ? 'today' : ''}">${day.isToday ? '今天' : day.dayName}</span>
             </div>
         `;
-    }).join('');
+    });
+
+    container.innerHTML = html;
+}
+
+// ====== Meal Tracker (Combined View) ======
+function renderMealTracker(dayExpenses) {
+    const container = document.getElementById('meal-tracker');
+    if (!container) return;
+
+    // Update date label
+    const labelEl = document.getElementById('meal-date-label');
+    const nextBtn = document.getElementById('meal-next-day');
+    const today = new Date();
+    const isToday = isSameDay(mealTrackerDate, today);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const isYesterday = isSameDay(mealTrackerDate, yesterday);
+
+    if (isToday) {
+        labelEl.innerText = '今天';
+        labelEl.classList.add('is-today');
+    } else if (isYesterday) {
+        labelEl.innerText = '昨天';
+        labelEl.classList.remove('is-today');
+    } else {
+        const m = mealTrackerDate.getMonth() + 1;
+        const d = mealTrackerDate.getDate();
+        const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        const dayName = dayNames[mealTrackerDate.getDay()];
+        labelEl.innerText = `${m}/${d} (${dayName})`;
+        labelEl.classList.remove('is-today');
+    }
+
+    // Disable next button if already at today
+    nextBtn.disabled = isToday;
+    nextBtn.classList.toggle('disabled', isToday);
+
+    // Meal categories to track
+    const mealSlots = [
+        { id: 'breakfast', label: '早餐', icon: '🍳' },
+        { id: 'lunch', label: '午餐', icon: '🍱' },
+        { id: 'dinner', label: '晚餐', icon: '🍜' },
+        { id: 'drinks', label: '飲料/點心', icon: '🧋' }
+    ];
+
+    // Combine both payers — meals are tracked as one shared unit
+    let slotsHtml = '';
+    mealSlots.forEach(slot => {
+        const records = dayExpenses.filter(e => e.category === slot.id);
+        if (records.length > 0) {
+            // Has records — show them
+            const totalAmount = records.reduce((sum, e) => sum + e.amount, 0);
+            const details = records.map(e => e.detail).filter(Boolean).join('、');
+            slotsHtml += `
+                <div class="meal-slot filled">
+                    <span class="meal-slot-icon">${slot.icon}</span>
+                    <div class="meal-slot-info">
+                        <span class="meal-slot-label">${slot.label}</span>
+                        <span class="meal-slot-detail">${details || ''}</span>
+                    </div>
+                    <span class="meal-slot-amount">$${totalAmount.toLocaleString()}</span>
+                </div>
+            `;
+        } else {
+            // Empty — clickable to add
+            slotsHtml += `
+                <div class="meal-slot empty" onclick="quickAddMeal('${slot.id}')">
+                    <span class="meal-slot-icon faded">${slot.icon}</span>
+                    <div class="meal-slot-info">
+                        <span class="meal-slot-label faded">${slot.label}</span>
+                        <span class="meal-slot-hint">點擊記帳</span>
+                    </div>
+                    <span class="meal-slot-add">+</span>
+                </div>
+            `;
+        }
+    });
+
+    // Total for the day (meals only)
+    const mealCatIds = mealSlots.map(s => s.id);
+    const mealTotal = dayExpenses.filter(e => mealCatIds.includes(e.category)).reduce((sum, e) => sum + e.amount, 0);
 
     container.innerHTML = `
-        <div class="drc-header">
-            <h3>餐費紀錄</h3>
-            <div class="drc-date-nav">
-                <button class="drc-nav-btn" onclick="goDailyPrev()">‹</button>
-                <span class="drc-date-label">${dateLabel}</span>
-                <button class="drc-nav-btn" onclick="goDailyNext()" ${isToday ? 'disabled' : ''}>›</button>
-            </div>
+        <div class="meal-day-header">
+            <span class="meal-day-title">三餐合計</span>
+            <span class="meal-day-total">$${mealTotal.toLocaleString()}</span>
         </div>
-        <div class="drc-person-totals">
-            <div class="drc-person-total">
-                <span class="drc-person-name">${nameA}</span>
-                <span class="drc-person-amount">$${totalA.toLocaleString()}</span>
-            </div>
-            <div class="drc-person-total">
-                <span class="drc-person-name">${nameB}</span>
-                <span class="drc-person-amount">$${totalB.toLocaleString()}</span>
-            </div>
-        </div>
-        <div class="drc-categories">
-            ${catRowsHTML}
+        <div class="meal-slots">
+            ${slotsHtml}
         </div>
     `;
 }
-
-window.goDailyPrev = function () {
-    dailyViewOffset -= 1;
-    renderDailyRecordSection();
-};
-
-window.goDailyNext = function () {
-    if (dailyViewOffset < 0) {
-        dailyViewOffset += 1;
-        renderDailyRecordSection();
-    }
-};
 
 function updatePieChart(expenses, total, budget) {
     const pieCenterValue = document.getElementById('pie-center-value');
@@ -701,8 +949,8 @@ function renderRecords() {
                         NT$ ${exp.amount.toLocaleString()}
                     </div>
                     <div class="record-actions">
-                        <button class="record-edit" onclick="editRecord(${exp.id})" title="編輯紀錄">✏️</button>
-                        <button class="record-del" onclick="deleteRecord(${exp.id})" title="刪除紀錄">✕</button>
+                        <button class="record-edit" onclick="editRecord('${exp.id}')" title="編輯紀錄">✏️</button>
+                        <button class="record-del" onclick="deleteRecord('${exp.id}')" title="刪除紀錄">✕</button>
                     </div>
                 </div>
             </div>
@@ -757,262 +1005,177 @@ function renderStatsForMonth(monthStr) {
     const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('stats-total-amount').innerText = `NT$ ${totalSpent.toLocaleString()}`;
 
-    // Settlement Logic
-    const totalA = monthExpenses.filter(e => e.payer === 'A').reduce((sum, e) => sum + e.amount, 0);
-    const totalB = monthExpenses.filter(e => e.payer === 'B').reduce((sum, e) => sum + e.amount, 0);
-    const nameA = state.payerAName || 'A';
-    const nameB = state.payerBName || 'B';
-    const halfDiff = Math.round(Math.abs(totalA - totalB) / 2);
 
-    let settlementHtml = `
-        <h3>雙人結算</h3>
-        <div class="settlement-breakdown">
-            <div class="settlement-person">
-                <span>${nameA} 總花費</span>
-                <span class="settlement-amount">NT$ ${totalA.toLocaleString()}</span>
-            </div>
-            <div class="settlement-person">
-                <span>${nameB} 總花費</span>
-                <span class="settlement-amount">NT$ ${totalB.toLocaleString()}</span>
-            </div>
-        </div>
-        <div class="settlement-result">
-    `;
-
-    if (totalA > totalB) {
-        settlementHtml += `<span>💡 結算建議：<strong>${nameB}</strong> 應付給 <strong>${nameA}</strong> <span class="highlight">NT$ ${halfDiff.toLocaleString()}</span></span>`;
-    } else if (totalB > totalA) {
-        settlementHtml += `<span>💡 結算建議：<strong>${nameA}</strong> 應付給 <strong>${nameB}</strong> <span class="highlight">NT$ ${halfDiff.toLocaleString()}</span></span>`;
-    } else {
-        settlementHtml += `<span>💡 結算建議：目前帳目平衡，無須結算！</span>`;
-    }
-    settlementHtml += `</div>`;
-    document.getElementById('stats-settlement-card').innerHTML = settlementHtml;
 
     updateStatsPieChart(monthExpenses, totalSpent);
-    renderDailyStatsTable();
-    renderDailyTrendChart(monthExpenses, year, month);
-    renderTop5(monthExpenses);
+    renderStatsMonthlyBarChart(year, month, monthExpenses);
+    renderStatsTopExpenses(monthExpenses);
+    renderDailyStatsTable(year, month, monthExpenses);
 }
 
-function renderDailyTrendChart(monthExpenses, year, month) {
-    const container = document.getElementById('stats-trend-chart');
+function renderStatsMonthlyBarChart(yearStr, monthStr, expenses) {
+    const container = document.getElementById('stats-monthly-bar-chart');
+    const summaryEl = document.getElementById('stats-bar-summary');
     if (!container) return;
 
-    if (!year || !month) {
-        container.innerHTML = '';
-        return;
-    }
+    const year = parseInt(yearStr);
+    const month = parseInt(monthStr);
+    const daysInMonth = getDaysInMonth(year, month - 1);
 
-    const totalDays = getDaysInMonth(parseInt(year), parseInt(month) - 1);
-    const BAR_MAX_H = 80; // px, matches .trend-bar-wrap height
-
-    const dailySpends = [];
-    for (let d = 1; d <= totalDays; d++) {
-        const dayStart = new Date(parseInt(year), parseInt(month) - 1, d, 0, 0, 0);
-        const dayEnd   = new Date(parseInt(year), parseInt(month) - 1, d, 23, 59, 59);
-        const total = monthExpenses
-            .filter(e => { const dt = new Date(e.date); return dt >= dayStart && dt <= dayEnd; })
-            .reduce((s, e) => s + e.amount, 0);
-        dailySpends.push({ day: d, total });
-    }
-
-    const maxSpend = Math.max(...dailySpends.map(d => d.total), state.dailyBudget, 1);
-    const budgetLinePx = (state.dailyBudget / maxSpend) * BAR_MAX_H;
-
-    const today = new Date();
-    const isCurrentMonth =
-        today.getFullYear() === parseInt(year) &&
-        (today.getMonth() + 1) === parseInt(month);
-
-    const barsHTML = dailySpends.map(({ day, total }) => {
-        const barH = total > 0 ? Math.max(2, (total / maxSpend) * BAR_MAX_H) : 0;
-        const isOver = total > state.dailyBudget;
-        const isToday = isCurrentMonth && today.getDate() === day;
-        return `
-            <div class="trend-col${isToday ? ' trend-today' : ''}">
-                <div class="trend-bar-wrap">
-                    ${total > 0
-                        ? `<div class="trend-bar${isOver ? ' over-budget' : ''}" style="height:${barH}px"></div>`
-                        : `<div class="trend-bar empty"></div>`}
-                </div>
-                <div class="trend-day-label">${day}</div>
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = `
-        <h3>每日支出趨勢</h3>
-        <div class="trend-legend">
-            <span class="trend-legend-dot normal"></span><span>正常</span>
-            <span class="trend-legend-dot over"></span><span>超預算</span>
-            <span class="trend-legend-line"></span><span>每日預算 NT$${state.dailyBudget.toLocaleString()}</span>
-        </div>
-        <div class="trend-chart-scroll">
-            <div class="trend-chart">
-                ${barsHTML}
-                <div class="trend-budget-line" style="bottom: calc(20px + ${budgetLinePx}px)"></div>
-            </div>
-        </div>
-    `;
-}
-
-function renderTop5(monthExpenses) {
-    const container = document.getElementById('stats-top5');
-    if (!container) return;
-
-    if (monthExpenses.length === 0) {
-        container.innerHTML = '<h3>本月 Top 5 支出</h3><p style="text-align:center;color:var(--text-muted);font-size:13px;padding:12px 0">無資料</p>';
-        return;
-    }
-
-    const top5 = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
-    const maxAmt = top5[0].amount;
-
-    const itemsHTML = top5.map((exp, i) => {
-        const cat = CATEGORIES.find(c => c.id === exp.category) || { icon: '?', name: '未知', color: '#888' };
-        const payer = exp.payer === 'A' ? (state.payerAName || 'A') : (state.payerBName || 'B');
-        const d = new Date(exp.date);
-        const dateStr = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
-        const barPct = (exp.amount / maxAmt) * 100;
-        return `
-            <div class="top5-item">
-                <div class="top5-rank">${i + 1}</div>
-                <div class="top5-icon" style="background:${cat.color}22;color:${cat.color}">${cat.icon}</div>
-                <div class="top5-info">
-                    <span class="top5-name">${cat.name}${exp.detail ? ` · ${exp.detail}` : ''}</span>
-                    <span class="top5-meta">${dateStr} · ${payer}</span>
-                    <div class="top5-bar-bg"><div class="top5-bar" style="width:${barPct}%;background:${cat.color}"></div></div>
-                </div>
-                <div class="top5-amount">NT$&nbsp;${exp.amount.toLocaleString()}</div>
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = `
-        <h3>本月 Top 5 支出</h3>
-        <div class="top5-list">${itemsHTML}</div>
-    `;
-}
-
-function renderDailyStatsTable() {
-    const container = document.getElementById('stats-daily-table');
-    const nameA = state.payerAName || 'A';
-    const nameB = state.payerBName || 'B';
-
-    const mealCell = (dayExp, category, payer, dateIso) => {
-        const records = dayExp.filter(e => e.category === category && e.payer === payer);
-        if (records.length === 1) {
-            const detailHtml = records[0].detail ? `<span class="meal-cell-detail">${records[0].detail.slice(0, 5)}</span>` : '';
-            return `<div class="meal-cell recorded">NT$ ${records[0].amount.toLocaleString()}${detailHtml}</div>`;
-        }
-        if (records.length > 1) {
-            const total = records.reduce((sum, e) => sum + e.amount, 0);
-            return `<div class="meal-cell recorded">NT$ ${total.toLocaleString()}<span class="meal-cell-count">(${records.length}筆)</span></div>`;
-        }
-        return `<div class="meal-cell missing" onclick="quickAddMeal('${dateIso}','${category}','${payer}')"></div>`;
-    };
-
-    let html = `
-        <h3>最近兩週早午餐 & 晚餐</h3>
-        <div class="meal-check-grid">
-            <div class="meal-check-header">
-                <div class="mcol-date"></div>
-                <div class="mcol-group">
-                    <div class="mcol-label">🍳 早午餐</div>
-                    <div class="mcol-pair">
-                        <span>${nameA}</span><span>${nameB}</span>
-                    </div>
-                </div>
-                <div class="mcol-group">
-                    <div class="mcol-label">🍜 晚餐</div>
-                    <div class="mcol-pair">
-                        <span>${nameA}</span><span>${nameB}</span>
-                    </div>
-                </div>
-            </div>
-    `;
-
-    for (let i = 0; i < 14; i++) {
-        const day = new Date();
-        day.setDate(new Date().getDate() - i);
-        const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(day); dayEnd.setHours(23, 59, 59, 999);
-
-        const dayExp = state.expenses.filter(e => {
-            const d = new Date(e.date);
-            return d >= dayStart && d <= dayEnd;
+    // Build daily totals
+    const dailyTotals = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayExp = expenses.filter(e => new Date(e.date).getDate() === i);
+        dailyTotals.push({
+            day: i,
+            total: dayExp.reduce((sum, e) => sum + e.amount, 0)
         });
+    }
 
-        const yyyy = day.getFullYear();
-        const mm = String(day.getMonth() + 1).padStart(2, '0');
-        const dd = String(day.getDate()).padStart(2, '0');
-        const dateIso = `${yyyy}-${mm}-${dd}`;
-        const dayStr = `${day.getMonth() + 1}/${dd}`;
+    const maxAmount = Math.max(...dailyTotals.map(d => d.total), state.dailyBudget, 1);
+    const maxBarHeight = 100; // px
+    const budgetLineBottom = (state.dailyBudget / maxAmount) * maxBarHeight;
 
-        const hasBrunchA = dayExp.some(e => e.category === 'brunch' && e.payer === 'A');
-        const hasBrunchB = dayExp.some(e => e.category === 'brunch' && e.payer === 'B');
-        const hasDinnerA = dayExp.some(e => e.category === 'dinner' && e.payer === 'A');
-        const hasDinnerB = dayExp.some(e => e.category === 'dinner' && e.payer === 'B');
-        const hasAnyMissing = !hasBrunchA || !hasBrunchB || !hasDinnerA || !hasDinnerB;
+    // Calculate stats
+    const daysWithSpending = dailyTotals.filter(d => d.total > 0);
+    const avgSpending = daysWithSpending.length > 0
+        ? Math.round(daysWithSpending.reduce((sum, d) => sum + d.total, 0) / daysWithSpending.length)
+        : 0;
+    const overBudgetDays = dailyTotals.filter(d => d.total > state.dailyBudget).length;
+    const maxDay = dailyTotals.reduce((max, d) => d.total > max.total ? d : max, { day: 0, total: 0 });
+
+    let html = '';
+    dailyTotals.forEach((day, idx) => {
+        const barHeight = (day.total / maxAmount) * maxBarHeight;
+        const isOverBudget = day.total > state.dailyBudget;
+        const barClass = isOverBudget ? 'over-budget' : '';
 
         html += `
-            <div class="meal-check-row ${hasAnyMissing ? 'row-missing' : ''}">
-                <div class="mcol-date">${dayStr}</div>
-                <div class="mcol-group">
-                    <div class="mcol-pair">
-                        ${mealCell(dayExp, 'brunch', 'A', dateIso)}
-                        ${mealCell(dayExp, 'brunch', 'B', dateIso)}
-                    </div>
+            <div class="stats-bar-col">
+                <div class="stats-bar-wrapper">
+                    <div class="stats-bar-fill ${barClass}" style="height: ${Math.max(barHeight, day.total > 0 ? 3 : 0)}px; animation: barGrow 0.4s ease ${idx * 0.02}s both;"></div>
                 </div>
-                <div class="mcol-group">
-                    <div class="mcol-pair">
-                        ${mealCell(dayExp, 'dinner', 'A', dateIso)}
-                        ${mealCell(dayExp, 'dinner', 'B', dateIso)}
-                    </div>
-                </div>
+                <span class="stats-bar-day">${day.day}</span>
             </div>
         `;
+    });
+
+    // Add budget line overlay
+    container.innerHTML = html;
+    container.style.setProperty('--budget-line-bottom', `${budgetLineBottom}px`);
+
+    // Render summary
+    summaryEl.innerHTML = `
+        <div class="stats-bar-stat">
+            <span class="stats-bar-stat-label">日均花費</span>
+            <span class="stats-bar-stat-value">$${avgSpending.toLocaleString()}</span>
+        </div>
+        <div class="stats-bar-stat">
+            <span class="stats-bar-stat-label">超支天數</span>
+            <span class="stats-bar-stat-value ${overBudgetDays > 0 ? 'over' : ''}">${overBudgetDays} 天</span>
+        </div>
+        <div class="stats-bar-stat">
+            <span class="stats-bar-stat-label">最高日</span>
+            <span class="stats-bar-stat-value">${monthStr}/${String(maxDay.day).padStart(2, '0')} $${maxDay.total.toLocaleString()}</span>
+        </div>
+    `;
+}
+
+function renderStatsTopExpenses(expenses) {
+    const container = document.getElementById('stats-top-expenses');
+    if (!container) return;
+
+    if (expenses.length === 0) {
+        container.innerHTML = '<div class="text-muted" style="text-align: center; padding: 10px 0; font-size: 13px;">無支出紀錄</div>';
+        return;
+    }
+
+    // Sort descending by amount and slice top 5
+    const top5 = [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+    let html = '';
+    top5.forEach((exp, index) => {
+        const cat = CATEGORIES.find(c => c.id === exp.category) || { name: '未知', icon: '❓', color: '#888' };
+        
+        const d = new Date(exp.date);
+        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+        
+        let payerText = exp.payer;
+        if (exp.payer === 'A') payerText = state.payerAName || 'A';
+        else if (exp.payer === 'B') payerText = state.payerBName || 'B';
+
+        html += `
+            <div class="top-expense-item">
+                <div class="top-expense-rank" style="color: ${index === 0 ? 'var(--primary)' : index === 1 ? '#D3B17D' : index === 2 ? '#C4A17B' : 'var(--text-muted)'};">${index + 1}</div>
+                <div class="top-expense-icon" style="background:${cat.color}20; color:${cat.color}">${cat.icon}</div>
+                <div class="top-expense-info">
+                    <span class="top-expense-cat">${cat.name}${exp.detail ? ` - <span>${exp.detail}</span>` : ''}</span>
+                    <span class="top-expense-meta">${dateStr} · 由 ${payerText} 付款</span>
+                </div>
+                <div class="top-expense-amount">NT$ ${exp.amount.toLocaleString()}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderDailyStatsTable(yearStr, monthStr, expenses) {
+    const container = document.getElementById('stats-daily-table');
+    const year = parseInt(yearStr);
+    const month = parseInt(monthStr);
+    const daysInMonth = getDaysInMonth(year, month - 1);
+
+    let html = '<h3>每日結算</h3><div class="daily-list">';
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayExp = expenses.filter(e => {
+            const d = new Date(e.date);
+            return d.getDate() === i;
+        });
+
+        const dayTotal = dayExp.reduce((sum, e) => sum + e.amount, 0);
+        const dayStr = `${monthStr}/${String(i).padStart(2, '0')}`;
+
+        // Generate category badges row
+        let catsHtml = '<div class="daily-cats-row">';
+        CATEGORIES.forEach(cat => {
+            const hasCat = dayExp.some(e => e.category === cat.id);
+            if (hasCat) {
+                catsHtml += `<div class="daily-cat-badge active" style="background:${cat.color}20;" title="${cat.name}">${cat.icon}</div>`;
+            } else {
+                catsHtml += `<div class="daily-cat-badge inactive" title="未記帳: ${cat.name}">${cat.icon}</div>`;
+            }
+        });
+        catsHtml += '</div>';
+
+        if (dayTotal > 0) {
+            const isOverBudget = dayTotal > state.dailyBudget;
+            html += `
+                <div class="daily-item expanded${isOverBudget ? ' over-budget' : ''}">
+                    <div class="daily-item-header">
+                        <span class="daily-date${isOverBudget ? ' over-budget' : ''}">${dayStr}</span>
+                        <span class="daily-amount${isOverBudget ? ' over-budget' : ' danger'}">NT$ ${dayTotal.toLocaleString()}</span>
+                    </div>
+                    ${catsHtml}
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="daily-item missed expanded">
+                    <div class="daily-item-header">
+                        <span class="daily-date">${dayStr}</span>
+                        <span class="daily-amount text-muted">尚未記帳</span>
+                    </div>
+                    ${catsHtml}
+                </div>
+            `;
+        }
     }
 
     html += '</div>';
     container.innerHTML = html;
 }
-
-window.quickAddMeal = function (dateIso, category, payer) {
-    // Switch to add view
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-add').classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('.nav-item[data-target="add"]').classList.add('active');
-
-    resetAddForm();
-
-    // Pre-fill date
-    document.getElementById('expense-date').value = dateIso;
-
-    // Pre-select category
-    selectedCategory = category;
-    document.querySelectorAll('.category-item').forEach(el => {
-        if (el.getAttribute('data-cat') === category) {
-            el.classList.add('selected');
-        } else {
-            el.classList.remove('selected');
-        }
-    });
-
-    // Pre-select payer
-    selectedPayer = payer;
-    document.querySelectorAll('.payer-btn').forEach(btn => {
-        if (btn.getAttribute('data-payer') === payer) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-
-    document.getElementById('abang-quote').innerText = '補記餐費中... ✏️';
-};
 
 function updateStatsPieChart(expenses, total) {
     const pieCenterValue = document.getElementById('stats-pie-center-value');
@@ -1098,9 +1261,21 @@ function setupSettings() {
 
     document.getElementById('btn-clear-data').addEventListener('click', () => {
         if (confirm('確定要清除所有記帳紀錄嗎？阿邦會很傷心的 😿')) {
-            state.expenses = [];
-            saveState(); // syncs to Firestore
-            document.querySelector('[data-target="dashboard"]').click();
+            if (expensesRef) {
+                // Batch delete for Firestore
+                expensesRef.get().then(snapshot => {
+                    const batch = db.batch();
+                    snapshot.forEach(doc => batch.delete(doc.ref));
+                    return batch.commit();
+                }).then(() => {
+                    console.log("雲端資料已清空");
+                    document.querySelector('[data-target="dashboard"]').click();
+                });
+            } else {
+                state.expenses = [];
+                saveState();
+                document.querySelector('[data-target="dashboard"]').click();
+            }
         }
     });
 
@@ -1131,7 +1306,7 @@ function setupSettings() {
                 const importedState = JSON.parse(event.target.result);
                 if (importedState && typeof importedState === 'object' && Array.isArray(importedState.expenses)) {
                     state = importedState;
-                    saveState(); // syncs to Firestore
+                    saveState();
                     document.documentElement.setAttribute('data-theme', state.theme || 'light');
                     document.querySelector('[data-target="dashboard"]').click();
                     alert('資料匯入成功！');
