@@ -23,7 +23,6 @@ const CATEGORIES = [
     { id: 'lunch', name: '午餐', icon: '🍱', color: '#DDA15E' },
     { id: 'dinner', name: '晚餐宵夜', icon: '🍜', color: '#F4A261' },
     { id: 'drinks', name: '飲料/點心', icon: '🧋', color: '#2A9D8F' },
-    { id: 'alcohol', name: '喝酒', icon: '🍻', color: '#E76F51' },
     { id: 'others', name: '其他', icon: '✨', color: '#9D8189' }
 ];
 
