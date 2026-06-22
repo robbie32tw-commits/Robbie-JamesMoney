@@ -946,33 +946,66 @@ function renderRecords() {
     // Sort descending by date
     const sorted = [...state.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    recordsList.innerHTML = sorted.map(exp => {
-        const cat = CATEGORIES.find(c => c.id === exp.category) || { name: '未知', icon: '❓', color: '#888' };
-        let payerText = exp.payer;
-        if (exp.payer === 'A') payerText = state.payerAName || 'A';
-        else if (exp.payer === 'B') payerText = state.payerBName || 'B';
-
+    // 依日期分組（新到舊）
+    const groups = [];
+    const groupMap = {};
+    sorted.forEach(exp => {
         const d = new Date(exp.date);
-        const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        if (!groupMap[key]) {
+            groupMap[key] = { date: d, items: [] };
+            groups.push(groupMap[key]);
+        }
+        groupMap[key].items.push(exp);
+    });
 
-        return `
-            <div class="record-item">
-                <div class="record-left">
-                    <div class="record-icon" style="background:${cat.color}20; color:${cat.color}">${cat.icon}</div>
-                    <div class="record-details">
-                        <span class="record-cat">${cat.name}${exp.detail ? ` - <span>${exp.detail}</span>` : ''}</span>
-                        <span class="record-meta">${dateStr} · 由 ${payerText} 付款</span>
+    const today = new Date();
+    const isSameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+    recordsList.innerHTML = groups.map(group => {
+        const d = group.date;
+        let dateLabel;
+        if (isSameDay(d, today)) dateLabel = '今天';
+        else if (isSameDay(d, yesterday)) dateLabel = '昨天';
+        else dateLabel = `${d.getMonth() + 1}月${d.getDate()}日 週${weekdays[d.getDay()]}`;
+
+        const dayTotal = group.items.reduce((sum, e) => sum + e.amount, 0);
+
+        const rows = group.items.map(exp => {
+            const cat = CATEGORIES.find(c => c.id === exp.category) || { name: '未知', icon: '❓', color: '#888' };
+            let payerText = exp.payer;
+            if (exp.payer === 'A') payerText = state.payerAName || 'A';
+            else if (exp.payer === 'B') payerText = state.payerBName || 'B';
+
+            const t = new Date(exp.date);
+            const timeStr = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+
+            return `
+                <div class="record-item">
+                    <div class="record-icon" style="background:${cat.color}22; color:${cat.color}">${cat.icon}</div>
+                    <div class="record-main">
+                        <div class="record-title">${cat.name}${exp.detail ? `<span class="record-detail">${exp.detail}</span>` : ''}</div>
+                        <div class="record-meta">${timeStr} · ${payerText}</div>
                     </div>
-                </div>
-                <div class="record-right">
-                    <div class="record-amount">
-                        NT$ ${exp.amount.toLocaleString()}
-                    </div>
+                    <div class="record-amount">NT$ ${exp.amount.toLocaleString()}</div>
                     <div class="record-actions">
                         <button class="record-edit" onclick="editRecord('${exp.id}')" title="編輯紀錄">✏️</button>
                         <button class="record-del" onclick="deleteRecord('${exp.id}')" title="刪除紀錄">✕</button>
                     </div>
                 </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="record-group">
+                <div class="record-date-header">
+                    <span class="record-date-label">${dateLabel}</span>
+                    <span class="record-day-total">NT$ ${dayTotal.toLocaleString()}</span>
+                </div>
+                <div class="record-day-list">${rows}</div>
             </div>
         `;
     }).join('');
