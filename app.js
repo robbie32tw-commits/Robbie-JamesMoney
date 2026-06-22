@@ -22,8 +22,7 @@ const CATEGORIES = [
     { id: 'breakfast', name: '早餐', icon: '🍳', color: '#E9C46A' },
     { id: 'lunch', name: '午餐', icon: '🍱', color: '#DDA15E' },
     { id: 'dinner', name: '晚餐宵夜', icon: '🍜', color: '#F4A261' },
-    { id: 'drinks', name: '飲料/點心', icon: '🧋', color: '#2A9D8F' },
-    { id: 'others', name: '其他', icon: '✨', color: '#9D8189' }
+    { id: 'drinks', name: '飲料/點心', icon: '🧋', color: '#2A9D8F' }
 ];
 
 let state = {
@@ -124,6 +123,12 @@ function loadStateFromFirebase() {
                     data.category = 'lunch';
                     expensesRef.doc(doc.id).update({ category: 'lunch' })
                         .catch(e => console.error('分類遷移失敗:', e));
+                }
+                // 舊資料清除：「其他」(others) 分類已移除，刪除既有紀錄
+                if (data.category === 'others') {
+                    expensesRef.doc(doc.id).delete()
+                        .catch(e => console.error('其他紀錄刪除失敗:', e));
+                    return;
                 }
                 newExpenses.push({ ...data, id: doc.id });
             });

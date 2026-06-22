@@ -37,22 +37,7 @@
                 </header>
 
                 <div class="dashboard-content">
-                    <!-- 每日餐費紀錄 (合併檢視) -->
-                    <div class="chart-card meal-tracker-card">
-                        <div class="meal-tracker-header">
-                            <h3>餐費紀錄</h3>
-                            <div class="meal-date-nav">
-                                <button class="meal-nav-btn" id="meal-prev-day" onclick="changeMealDate(-1)">‹</button>
-                                <span class="meal-date-label" id="meal-date-label">今天</span>
-                                <button class="meal-nav-btn" id="meal-next-day" onclick="changeMealDate(1)">›</button>
-                            </div>
-                        </div>
-                        <div class="meal-tracker-split" id="meal-tracker">
-                            <!-- 動態生成餐費紀錄 -->
-                        </div>
-                    </div>
-
-                    <!-- 記一筆 (內嵌於首頁，位於餐費紀錄下方) -->
+                    <!-- 記一筆 (內嵌於首頁) -->
                     <div class="chart-card add-form-card">
                         <h3 id="add-form-title">記一筆</h3>
                         <div class="add-form">
@@ -111,6 +96,21 @@
                         <h3>最近七日花費趨勢</h3>
                         <div class="bar-chart-container" id="bar-chart-7days">
                             <!-- 動態生成直條圖 -->
+                        </div>
+                    </div>
+
+                    <!-- 每日餐費紀錄 (合併檢視) -->
+                    <div class="chart-card meal-tracker-card">
+                        <div class="meal-tracker-header">
+                            <h3>餐費紀錄</h3>
+                            <div class="meal-date-nav">
+                                <button class="meal-nav-btn" id="meal-prev-day" onclick="changeMealDate(-1)">‹</button>
+                                <span class="meal-date-label" id="meal-date-label">今天</span>
+                                <button class="meal-nav-btn" id="meal-next-day" onclick="changeMealDate(1)">›</button>
+                            </div>
+                        </div>
+                        <div class="meal-tracker-split" id="meal-tracker">
+                            <!-- 動態生成餐費紀錄 -->
                         </div>
                     </div>
 
@@ -325,7 +325,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="app.js?v=20260621-2"></script>
+    <script src="app.js?v=20260622-1"></script>
 
     <!-- PWA Service Worker Registration -->
     <script>
