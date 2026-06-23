@@ -1218,12 +1218,23 @@ h3 {
     color: var(--primary);
 }
 
-.daily-table h3 {
-    margin-top: 0;
+.daily-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
+}
+
+.daily-table-header h3 {
+    margin: 0;
     font-size: 16px;
     color: var(--dark);
-    text-align: center;
+}
+
+.daily-page-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .daily-list {

@@ -1173,15 +1173,48 @@ function renderStatsTopExpenses(expenses) {
     container.innerHTML = html;
 }
 
+const DAILY_PAGE_SIZE = 7;
+let dailyStats = { monthStr: '', expenses: [], daysInMonth: 0, page: 0 };
+
 function renderDailyStatsTable(yearStr, monthStr, expenses) {
     const container = document.getElementById('stats-daily-table');
     const year = parseInt(yearStr);
     const month = parseInt(monthStr);
     const daysInMonth = getDaysInMonth(year, month - 1);
+    const pageCount = Math.ceil(daysInMonth / DAILY_PAGE_SIZE);
 
-    let html = '<h3>每日結算</h3><div class="daily-list">';
+    // 預設顯示包含「今天」的那一頁（若正在看當月），否則第一頁
+    const today = new Date();
+    let defaultPage = 0;
+    if (today.getFullYear() === year && (today.getMonth() + 1) === month) {
+        defaultPage = Math.floor((today.getDate() - 1) / DAILY_PAGE_SIZE);
+    }
 
-    for (let i = 1; i <= daysInMonth; i++) {
+    dailyStats = { monthStr, expenses, daysInMonth, page: Math.min(defaultPage, pageCount - 1) };
+
+    container.innerHTML = `
+        <div class="daily-table-header">
+            <h3>每日結算</h3>
+            <div class="daily-page-nav">
+                <button class="meal-nav-btn" id="daily-prev" onclick="changeDailyStatsPage(-1)">‹</button>
+                <span class="meal-date-label" id="daily-page-label"></span>
+                <button class="meal-nav-btn" id="daily-next" onclick="changeDailyStatsPage(1)">›</button>
+            </div>
+        </div>
+        <div class="daily-list" id="daily-list"></div>
+    `;
+
+    renderDailyStatsPage();
+}
+
+function renderDailyStatsPage() {
+    const { monthStr, expenses, daysInMonth, page } = dailyStats;
+    const pageCount = Math.ceil(daysInMonth / DAILY_PAGE_SIZE);
+    const startDay = page * DAILY_PAGE_SIZE + 1;
+    const endDay = Math.min(startDay + DAILY_PAGE_SIZE - 1, daysInMonth);
+
+    let html = '';
+    for (let i = startDay; i <= endDay; i++) {
         const dayExp = expenses.filter(e => {
             const d = new Date(e.date);
             return d.getDate() === i;
@@ -1226,9 +1259,20 @@ function renderDailyStatsTable(yearStr, monthStr, expenses) {
         }
     }
 
-    html += '</div>';
-    container.innerHTML = html;
+    document.getElementById('daily-list').innerHTML = html;
+    document.getElementById('daily-page-label').textContent =
+        `${monthStr}/${String(startDay).padStart(2, '0')} – ${monthStr}/${String(endDay).padStart(2, '0')}`;
+    document.getElementById('daily-prev').classList.toggle('disabled', page <= 0);
+    document.getElementById('daily-next').classList.toggle('disabled', page >= pageCount - 1);
 }
+
+window.changeDailyStatsPage = function (delta) {
+    const pageCount = Math.ceil(dailyStats.daysInMonth / DAILY_PAGE_SIZE);
+    const next = dailyStats.page + delta;
+    if (next < 0 || next >= pageCount) return;
+    dailyStats.page = next;
+    renderDailyStatsPage();
+};
 
 function updateStatsPieChart(expenses, total) {
     const pieCenterValue = document.getElementById('stats-pie-center-value');
