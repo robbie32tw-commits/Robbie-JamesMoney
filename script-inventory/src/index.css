@@ -1,0 +1,41 @@
+:root {
+  --primary: #5b4a8a;
+  --primary-light: #7c6bab;
+  --primary-bg: rgba(91, 74, 138, 0.08);
+  --digital: #2563eb;
+  --digital-bg: rgba(37, 99, 235, 0.08);
+  --digital-border: rgba(37, 99, 235, 0.2);
+  --paper: #d97706;
+  --paper-bg: rgba(217, 119, 6, 0.08);
+  --paper-border: rgba(217, 119, 6, 0.2);
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --bg: #f8f7fc;
+  --card-bg: #ffffff;
+  --border: #e5e7eb;
+  --danger: #ef4444;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+}
