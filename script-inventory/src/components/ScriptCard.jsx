@@ -11,7 +11,7 @@ export default function ScriptCard({ script, onEdit, onDelete }) {
           <button className="icon-btn edit" onClick={() => onEdit(script)} title="編輯">
             ✏️
           </button>
-          <button className="icon-btn delete" onClick={() => onDelete(script.id)} title="刪除">
+          <button className="icon-btn delete" onClick={() => onDelete(script)} title="刪除">
             🗑️
           </button>
         </div>
@@ -19,6 +19,16 @@ export default function ScriptCard({ script, onEdit, onDelete }) {
       <h3 className="card-title">{script.name}</h3>
       {script.author && <p className="card-author">✍️ {script.author}</p>}
       {script.location && <p className="card-location">📍 {script.location}</p>}
+      {script.fileUrl && (
+        <a
+          className="card-file-link"
+          href={script.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          📄 開啟 PDF
+        </a>
+      )}
       {script.format === 'paper' && script.quantity > 0 && (
         <p className="card-quantity">📦 數量：{script.quantity}</p>
       )}

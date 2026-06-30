@@ -307,6 +307,21 @@
   font-weight: 500;
 }
 
+.card-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--digital);
+  text-decoration: none;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.card-file-link:hover {
+  text-decoration: underline;
+}
+
 .card-notes {
   font-size: 13px;
   color: var(--text-secondary);
@@ -482,6 +497,57 @@
 .tag.removable:hover {
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
+}
+
+.form-group input[type='file'] {
+  width: 100%;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.file-attached {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--digital-bg);
+  border: 1px solid var(--digital-border);
+  border-radius: var(--radius-sm);
+}
+
+.file-attached .file-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.remove-file-btn:hover {
+  text-decoration: underline;
+}
+
+.file-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.file-error {
+  font-size: 13px;
+  color: var(--danger);
+  margin-top: 6px;
 }
 
 .form-actions {

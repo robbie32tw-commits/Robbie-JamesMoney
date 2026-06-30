@@ -51,9 +51,9 @@ export default function App() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (script) => {
     if (window.confirm('確定要刪除這個劇本嗎？')) {
-      await deleteScript(id);
+      await deleteScript(script.id, script.filePath);
     }
   };
 

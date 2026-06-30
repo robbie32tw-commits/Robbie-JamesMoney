@@ -10,9 +10,28 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
+import { db, storage } from '../firebase';
 
 const COLLECTION = 'scripts';
+
+export async function uploadScriptFile(file) {
+  const path = `scripts/${Date.now()}_${file.name}`;
+  const fileRef = ref(storage, path);
+  await uploadBytes(fileRef, file);
+  const url = await getDownloadURL(fileRef);
+  return { fileUrl: url, filePath: path, fileName: file.name };
+}
+
+export async function deleteScriptFile(filePath) {
+  if (!filePath) return;
+  await deleteObject(ref(storage, filePath)).catch(() => {});
+}
 
 export function useScripts() {
   const [scripts, setScripts] = useState([]);
@@ -43,7 +62,8 @@ export function useScripts() {
     });
   };
 
-  const deleteScript = async (id) => {
+  const deleteScript = async (id, filePath) => {
+    await deleteScriptFile(filePath);
     await deleteDoc(doc(db, COLLECTION, id));
   };
 

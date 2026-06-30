@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { uploadScriptFile, deleteScriptFile } from '../hooks/useScripts';
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
 const EMPTY_FORM = {
   name: '',
@@ -8,11 +11,16 @@ const EMPTY_FORM = {
   quantity: 1,
   tags: [],
   notes: '',
+  fileUrl: '',
+  filePath: '',
+  fileName: '',
 };
 
 export default function ScriptForm({ editing, onSave, onCancel, allTags }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [tagInput, setTagInput] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [fileError, setFileError] = useState('');
 
   useEffect(() => {
     if (editing) {
@@ -24,11 +32,15 @@ export default function ScriptForm({ editing, onSave, onCancel, allTags }) {
         quantity: editing.quantity || 1,
         tags: editing.tags || [],
         notes: editing.notes || '',
+        fileUrl: editing.fileUrl || '',
+        filePath: editing.filePath || '',
+        fileName: editing.fileName || '',
       });
     } else {
       setForm(EMPTY_FORM);
     }
     setTagInput('');
+    setFileError('');
   }, [editing]);
 
   const handleChange = (field, value) => {
@@ -54,16 +66,56 @@ export default function ScriptForm({ editing, onSave, onCancel, allTags }) {
     }
   };
 
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setFileError('只接受 PDF 檔案');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('檔案大小不可超過 25MB');
+      return;
+    }
+    setFileError('');
+    setUploading(true);
+    try {
+      if (form.filePath) {
+        await deleteScriptFile(form.filePath);
+      }
+      const { fileUrl, filePath, fileName } = await uploadScriptFile(file);
+      setForm((prev) => ({ ...prev, fileUrl, filePath, fileName }));
+    } catch (err) {
+      setFileError('上傳失敗，請再試一次');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveFile = async () => {
+    if (form.filePath) {
+      await deleteScriptFile(form.filePath);
+    }
+    setForm((prev) => ({ ...prev, fileUrl: '', filePath: '', fileName: '' }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || uploading) return;
+    const isPaper = form.format === 'paper';
+    if (isPaper && form.filePath) {
+      deleteScriptFile(form.filePath);
+    }
     onSave({
       ...form,
       name: form.name.trim(),
       author: form.author.trim(),
       location: form.location.trim(),
       notes: form.notes.trim(),
-      quantity: form.format === 'paper' ? Number(form.quantity) || 1 : 0,
+      quantity: isPaper ? Number(form.quantity) || 1 : 0,
+      fileUrl: isPaper ? '' : form.fileUrl,
+      filePath: isPaper ? '' : form.filePath,
+      fileName: isPaper ? '' : form.fileName,
     });
   };
 
@@ -140,6 +192,25 @@ export default function ScriptForm({ editing, onSave, onCancel, allTags }) {
             </div>
           )}
 
+          {form.format === 'digital' && (
+            <div className="form-group">
+              <label>PDF 檔案</label>
+              {form.fileName ? (
+                <div className="file-attached">
+                  <span className="file-icon">📄</span>
+                  <span className="file-name">{form.fileName}</span>
+                  <button type="button" className="remove-file-btn" onClick={handleRemoveFile}>
+                    移除
+                  </button>
+                </div>
+              ) : (
+                <input type="file" accept="application/pdf" onChange={handleFileSelect} />
+              )}
+              {uploading && <p className="file-hint">上傳中...</p>}
+              {fileError && <p className="file-error">{fileError}</p>}
+            </div>
+          )}
+
           <div className="form-group">
             <label>標籤</label>
             <div className="tag-input-row">
@@ -187,7 +258,7 @@ export default function ScriptForm({ editing, onSave, onCancel, allTags }) {
             <button type="button" className="btn secondary" onClick={onCancel}>
               取消
             </button>
-            <button type="submit" className="btn primary">
+            <button type="submit" className="btn primary" disabled={uploading}>
               {editing ? '儲存修改' : '新增劇本'}
             </button>
           </div>
